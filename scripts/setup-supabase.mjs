@@ -31,7 +31,9 @@ async function main() {
   console.log('\nInstalação do portfólio no Supabase\n');
   // Supabase > Project Settings > Database > Connection string (URI, "Session" ou "Direct")
   const DB_URL = await ask('DATABASE_URL', 'Connection string do banco (postgresql://...)');
-  const SB_URL = (await ask('SUPABASE_URL', 'Project URL (https://xxxx.supabase.co)', { optional: true })).replace(/\/$/, '');
+  // só o endereço do projeto: a tela Data API mostra a URL com /rest/v1/ no fim
+  const SB_URL = (await ask('SUPABASE_URL', 'Project URL (https://xxxx.supabase.co)', { optional: true }))
+    .replace(/\/(rest|auth|storage)\/v1.*$/, '').replace(/\/+$/, '');
   const ANON = SB_URL ? await ask('SUPABASE_ANON_KEY', 'anon public key', { optional: true }) : '';
   const ADMIN_EMAIL = await ask('ADMIN_EMAIL', 'E-mail do admin do painel', { optional: true });
   // só para CRIAR o usuário, se ele ainda não existir (a chave nunca vai para o site)
