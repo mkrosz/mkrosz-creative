@@ -1,0 +1,132 @@
+/* =====================================================================
+   Tokens e componentes compartilhados entre o portfólio e o painel.
+   As cores base (--bg-*, --fg-*, --accent*) são sobrescritas em tempo de
+   execução com o que estiver salvo no banco (ver theme.js).
+   ===================================================================== */
+:root {
+  --bg-light: #f3f7fd;
+  --fg-light: #0a1a33;
+  --bg-dark: #030a18;
+  --fg-dark: #e6efff;
+  --accent: #2f7bff;
+  --accent-2: #00c2ff;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+
+  --radius-sm: 8px;
+  --radius: 16px;
+  --radius-lg: 28px;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --dur-fast: 160ms;
+  --dur: 320ms;
+  --dur-slow: 700ms;
+
+  --bg: var(--bg-light);
+  --fg: var(--fg-light);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: var(--bg-dark);
+  --fg: var(--fg-dark);
+  color-scheme: dark;
+}
+
+:root {
+  --surface: color-mix(in oklab, var(--bg) 94%, var(--fg));
+  --surface-2: color-mix(in oklab, var(--bg) 88%, var(--fg));
+  --muted: color-mix(in oklab, var(--fg) 58%, var(--bg));
+  --line: color-mix(in oklab, var(--fg) 12%, transparent);
+  --line-strong: color-mix(in oklab, var(--fg) 24%, transparent);
+  --on-accent: #fff;
+  --focus: 0 0 0 3px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+img, video, iframe { display: block; max-width: 100%; }
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--radius-sm); }
+.serif { font-family: var(--font-serif); font-style: italic; font-weight: 400; letter-spacing: 0; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Botões ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5em;
+  min-height: 44px; padding: 0 1.25em;
+  border: 1px solid transparent; border-radius: 999px;
+  background: var(--surface-2); color: var(--fg);
+  font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease), background-color var(--dur-fast), border-color var(--dur-fast), opacity var(--dur-fast);
+}
+.btn:hover { background: color-mix(in oklab, var(--surface-2) 80%, var(--fg)); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn--primary { background: var(--fg); color: var(--bg); }
+.btn--primary:hover { background: color-mix(in oklab, var(--fg) 85%, var(--bg)); }
+.btn--accent { background: var(--accent); color: var(--on-accent); }
+.btn--accent:hover { background: color-mix(in oklab, var(--accent) 85%, #000); }
+.btn--ghost { background: transparent; border-color: var(--line-strong); }
+.btn--ghost:hover { background: var(--surface); }
+.btn--danger { background: transparent; color: #e5484d; border-color: color-mix(in oklab, #e5484d 40%, transparent); }
+.btn--danger:hover { background: color-mix(in oklab, #e5484d 10%, transparent); }
+.btn--sm { min-height: 34px; padding: 0 .9em; font-size: 13px; }
+.btn--icon { width: 44px; padding: 0; }
+.btn--icon.btn--sm { width: 34px; }
+
+/* Botão de plataforma (Behance, LinkedIn...) */
+
+/* ---------- Chips / tags ---------- */
+.chip {
+  --chip: var(--accent-2);
+  display: inline-flex; align-items: center; gap: .45em;
+  min-height: 30px; padding: 0 .8em;
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  background: transparent; font-size: 13px; font-weight: 500; white-space: nowrap;
+}
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--chip); }
+button.chip { cursor: pointer; min-height: 36px; transition: background-color var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast); }
+button.chip:hover { border-color: var(--fg); }
+button.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+/* ---------- Formulários ---------- */
+.field { display: grid; gap: 6px; }
+.field > span, .field-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.field small { font-size: 12px; color: var(--muted); }
+.input {
+  width: 100%; min-height: 44px; padding: 10px 14px;
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--bg); color: var(--fg);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.input:hover { border-color: color-mix(in oklab, var(--fg) 40%, transparent); }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+textarea.input { min-height: 110px; resize: vertical; line-height: 1.5; }
+input[type="color"].input { padding: 4px; width: 56px; cursor: pointer; }
+
+/* ---------- Modal base ---------- */
+.modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; }
+.modal[hidden] { display: none; }
+.modal__backdrop { position: absolute; inset: 0; background: color-mix(in oklab, #000 62%, transparent); }
+.modal__panel {
+  position: relative; width: min(1100px, 100%); max-height: calc(100dvh - 32px); overflow: auto;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  box-shadow: 0 30px 80px rgb(0 0 0 / .35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}
