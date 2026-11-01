@@ -9,6 +9,23 @@ Dois sites que conversam com o mesmo banco no **Supabase**:
 | **404** | qualquer endereço que não existe | Uma página só para os dois sites, com o "404" e o gato puxados (ou empurrados) pelo cursor e botão de tema. Em `/admin/...` ela mostra os botões do painel. |
 | **IDV Visual** | `/idv/` | Identidade visual da marca (logos para baixar, cores, tipografia) e do site e do painel. |
 
+## Telas
+
+### Portfólio
+
+<img src="docs/screenshots/portfolio-hero-escuro.jpg" alt="Hero com o buraco negro no tema escuro" width="49%"> <img src="docs/screenshots/portfolio-hero-claro.jpg" alt="Hero com o buraco branco e a nebulosa no tema claro" width="49%">
+<img src="docs/screenshots/portfolio-destaque-portal.jpg" alt="Projeto destaque abrindo pelo portal" width="49%"> <img src="docs/screenshots/portfolio-destaque.jpg" alt="Projeto destaque aberto" width="49%">
+<img src="docs/screenshots/portfolio-projetos.jpg" alt="Lista de projetos com pesquisa e filtro" width="49%"> <img src="docs/screenshots/portfolio-projeto-aberto.jpg" alt="Projeto aberto com galeria e links" width="49%">
+<img src="docs/screenshots/portfolio-sobre.jpg" alt="Sobre mim com as habilidades" width="49%"> <img src="docs/screenshots/portfolio-trajetoria.jpg" alt="Trajetória com formação e cursos" width="49%">
+<img src="docs/screenshots/portfolio-contato.jpg" alt="Contato com a malha do espaço-tempo" width="49%"> <img src="docs/screenshots/404.jpg" alt="Página 404 com o gato no lugar do zero" width="49%">
+
+### Painel
+
+<img src="docs/screenshots/painel-login.jpg" alt="Login do painel com o buraco negro ao fundo" width="49%"> <img src="docs/screenshots/painel-projetos.jpg" alt="Lista de projetos no painel" width="49%">
+<img src="docs/screenshots/painel-editar-projeto.jpg" alt="Editando um projeto" width="49%"> <img src="docs/screenshots/painel-tags.jpg" alt="Tags com os estados dos projetos" width="49%">
+<img src="docs/screenshots/painel-trajetoria.jpg" alt="Trajetória separada por tipo" width="49%"> <img src="docs/screenshots/painel-cores.jpg" alt="Cores e tema editados na prévia" width="49%">
+<img src="docs/screenshots/painel-identidade.jpg" alt="Identidade com as logos" width="49%"> <img src="docs/screenshots/painel-projetos-claro.jpg" alt="Painel no tema claro" width="49%">
+
 ## Feito para ser leve
 
 - **HTML, CSS e JavaScript puros**: sem framework e sem build. O `node_modules` só existe para o script de instalação do banco (`npm run setup`); o site não usa nada dele.
@@ -128,6 +145,18 @@ Depois do script, faça os passos 6 e 7 abaixo (eles são no painel do Supabase)
    - **Site URL**: o endereço do painel (ex.: `https://seu-site.com/admin/`).
    - **Redirect URLs**: `https://seu-site.com/admin/**` e, para testar no computador, `http://localhost:5500/admin/**`. É para lá que voltam os links de e-mail de **"Esqueci minha senha"** e de **troca de e-mail** (o `**` aceita o `?recuperar=1` que o painel coloca no link).
 7. Em **Authentication → Sign In / Providers**, desligue **"Allow new users to sign up"**: só você entra, e ninguém cria conta sozinho.
+
+### Ligar o banco no site publicado (Vercel)
+
+O site não tem build nem variáveis de ambiente: ele lê a URL e a chave pública do arquivo `shared/config.js`. Então ligar o banco é preencher esse arquivo e publicar de novo.
+
+1. Faça o **Jeito rápido** acima no seu computador (`npm install` e `npm run setup`). No fim, o `shared/config.js` fica preenchido com a Project URL e a anon key.
+2. Envie essa mudança para o GitHub (commit e push). A Vercel publica de novo sozinha em cerca de um minuto. A anon key pode ir para o repositório público: quem protege os dados são as regras (RLS) do banco.
+3. No Supabase, em **Authentication → URL Configuration**, use o endereço da Vercel: **Site URL** `https://seu-projeto.vercel.app/admin/` e, em **Redirect URLs**, `https://seu-projeto.vercel.app/admin/**` (e o seu domínio próprio, se tiver).
+4. Desligue o cadastro público (passo 7 do passo a passo manual).
+5. Abra `https://seu-projeto.vercel.app/admin/`, entre com o e-mail e a senha do admin e preencha o conteúdo. O site passa a mostrar o que estiver no banco.
+
+Na Vercel não precisa configurar nada: o projeto é estático (Framework Preset **Other**, sem comando de build, pasta raiz `./`). A integração "Supabase" da Vercel não é necessária, porque ela só cria variáveis de ambiente, que este site não usa.
 
 ### E-mails (recuperar senha e trocar e-mail)
 
