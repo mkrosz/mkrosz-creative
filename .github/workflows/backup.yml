@@ -1,0 +1,74 @@
+# Backup semanal do Supabase: o banco (pg_dump) e os arquivos do bucket "media".
+# O resultado vai criptografado (AES-256) como artefato da execução e fica 90 dias
+# em Actions → Backup do Supabase → a execução → Artifacts.
+# De quebra, o acesso semanal ao banco evita que o projeto gratuito pause por falta de uso.
+#
+# Segredos necessários (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL            connection string do Session pooler (o GitHub só tem IPv4)
+#   SUPABASE_URL               Project URL
+#   SUPABASE_SERVICE_ROLE_KEY  para ler todos os arquivos do bucket
+#   BACKUP_PASSPHRASE          senha para abrir o backup (guarde num lugar seguro)
+name: Backup do Supabase
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # toda segunda-feira, 3h no horário de Brasília
+  workflow_dispatch: {}  # botão "Run workflow" para rodar na hora
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # pg_dump 17: funciona com o Postgres 15 e o 17 do Supabase
+      - name: Instala o pg_dump
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      # Só os dados (a estrutura vem do supabase/schema.sql), em INSERTs que rodam
+      # no SQL Editor. Sem a tabela admins: ela aponta para usuários do projeto antigo.
+      - name: Banco de dados
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backup
+          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" --schema=public --data-only --inserts \
+            --exclude-table-data=public.admins --no-owner --no-privileges -f backup/banco.sql
+          echo "banco.sql: $(du -h backup/banco.sql | cut -f1)"
+
+      - name: Arquivos do storage
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/backup-storage.mjs backup/storage
+
+      # o artefato pode ser baixado por quem acessa o repositório: vai criptografado
+      - name: Compacta e criptografa
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          test -n "$PASSPHRASE" || { echo "Falta o segredo BACKUP_PASSPHRASE"; exit 1; }
+          name="backup-$(date -u +%Y-%m-%d)"
+          tar -czf "$name.tar.gz" -C backup .
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" --symmetric --cipher-algo AES256 -o "$name.tar.gz.gpg" "$name.tar.gz"
+          rm -rf backup "$name.tar.gz"
+          echo "NAME=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: ${{ env.NAME }}.tar.gz.gpg
+          retention-days: 90
