@@ -1,0 +1,16 @@
+{
+  "name": "mkrosz-portfolio",
+  "private": true,
+  "type": "module",
+  "description": "Portfólio + painel. `npm run setup` instala o banco inteiro no Supabase.",
+  "scripts": {
+    "setup": "node --env-file-if-exists=.env scripts/setup-supabase.mjs",
+    "dev": "python dev-server.py"
+  },
+  "dependencies": {
+    "pg": "8.13.1"
+  },
+  "engines": {
+    "node": ">=22.9"
+  }
+}
