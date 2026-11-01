@@ -1,0 +1,6 @@
+node_modules/
+.env
+# login de teste do modo demonstração (tem dados pessoais)
+admin/demo-login.js
+# configuração local do Claude Code (servidor de pré-visualização)
+.claude/
