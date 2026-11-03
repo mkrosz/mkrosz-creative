@@ -7,7 +7,10 @@
 //  2. Hiperespaço: digitar "warp" em qualquer lugar do site — as estrelas
 //     viram riscos de luz, a tela treme e a página voa até o rodapé.
 // =====================================================================
+import { isWhiteHole } from '../shared/gravity.js';
+
 const TAU = Math.PI * 2;
+const holeName = () => (isWhiteHole() ? 'buraco branco' : 'buraco negro');
 
 function toast(text, ms = 2800) {
   document.querySelectorAll('.egg-toast').forEach((old) => old.remove());
@@ -41,7 +44,7 @@ function fullCanvas(cls) {
 
 // Só um easter egg ativo por vez: ao ativar um, o que estiver rodando é desfeito.
 function stopOthers(except) {
-  if (except !== 'ship') ship?.end();
+  if (except !== 'ship') ship?.end({ now: true });
   if (except !== 'warp') warpStop?.();
   if (except !== 'zerog') zeroG?.end();
 }
@@ -51,7 +54,8 @@ function stopOthers(except) {
 // ---------------------------------------------------------------------
 let ship = null;
 
-export function launchShip({ from } = {}) {
+// home() = onde o buraco está agora na tela (a página pode ter rolado)
+export function launchShip({ from, home } = {}) {
   if (ship) return;
   stopOthers('ship');
   const { ctx, dispose } = fullCanvas('egg-canvas');
@@ -74,6 +78,7 @@ export function launchShip({ from } = {}) {
   }));
   const bits = []; // rastro e explosões
   let score = 0, done = false, last = 0, raf = 0;
+  let back = null; // volta para o buraco: { t0, x, y } de onde partiu
 
   const setHud = () => {
     hud.innerHTML = done
@@ -81,7 +86,7 @@ export function launchShip({ from } = {}) {
       : `<b>★ ${score}/${TOTAL}</b><span>setas ou mouse para pilotar · Esc sai</span>`;
   };
   setHud();
-  toast('🚀 Uma nave escapou do buraco negro!');
+  toast(`🚀 Uma nave escapou do ${holeName()}!`);
 
   const burst = (x, y, n, hueA = 190, hueB = 230, speed = 5) => {
     for (let i = 0; i < n; i++) {
@@ -93,6 +98,7 @@ export function launchShip({ from } = {}) {
   const onKey = (e) => {
     const k = e.key.toLowerCase();
     if (k === 'escape') { end(); return; }
+    if (back) return;
     const map = { arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right' };
     if (!map[k] || /input|textarea/i.test(e.target.tagName)) return;
     e.preventDefault(); // as setas pilotam a nave em vez de rolar a página
@@ -108,10 +114,12 @@ export function launchShip({ from } = {}) {
   addEventListener('pointermove', onMove, { passive: true });
   addEventListener('touchmove', onMove, { passive: true });
 
-  function drawShip() {
+  function drawShip(scale = 1) {
     ctx.save();
     ctx.translate(s.x, s.y);
     ctx.rotate(s.a + Math.PI / 2);
+    ctx.scale(scale, scale);
+    ctx.globalAlpha = Math.min(1, scale * 1.5);
     // chama do motor
     if (s.thrust) {
       const f = 10 + Math.random() * 10;
@@ -163,8 +171,45 @@ export function launchShip({ from } = {}) {
     const dt = Math.min(2, (t - (last || t)) / 16.67); // 1 = um quadro a 60fps
     last = t;
     const usingKeys = s.keys.size > 0 || t - s.lastKey < 1200;
+    let scale = 1;
 
-    if (usingKeys) {
+    if (back) {
+      // Faz uma curva suave (partindo na direção em que já voava) até o buraco,
+      // em tamanho normal; só no fim é sugada: gira em volta dele, encolhe e some.
+      const h = home?.() ?? from ?? { x: W() / 2, y: H() / 2 };
+      if (!back.t0) {
+        back.t0 = t;
+        const dist = Math.hypot(h.x - s.x, h.y - s.y);
+        back.dur = Math.min(3200, Math.max(1800, dist * 2.6)) + 900;
+        back.cx = s.x + Math.cos(s.a) * Math.min(220, dist * 0.6);
+        back.cy = s.y + Math.sin(s.a) * Math.min(220, dist * 0.6);
+      }
+      const p = Math.min(1, (t - back.t0) / back.dur);
+      const fly = 1 - 900 / back.dur; // parte do tempo voando; o resto é a sucção
+      const px = s.x, py = s.y;
+      if (p < fly) {
+        const q = p / fly, e = q < 0.5 ? 2 * q * q : 1 - (2 - 2 * q) ** 2 / 2;
+        const r = 46; // chega a um ponto na borda do buraco, não no centro
+        const tx = h.x + (back.cx - h.x) / (Math.hypot(back.cx - h.x, back.cy - h.y) || 1) * r;
+        const ty = h.y + (back.cy - h.y) / (Math.hypot(back.cx - h.x, back.cy - h.y) || 1) * r;
+        s.x = (1 - e) ** 2 * back.x + 2 * (1 - e) * e * back.cx + e * e * tx;
+        s.y = (1 - e) ** 2 * back.y + 2 * (1 - e) * e * back.cy + e * e * ty;
+        back.ang = Math.atan2(s.y - h.y, s.x - h.x);
+        s.thrust = true;
+      } else {
+        const q = (p - fly) / (1 - fly);
+        const ang = back.ang + q * q * Math.PI * 3; // acelera girando
+        const rad = 46 * (1 - q);
+        s.x = h.x + Math.cos(ang) * rad;
+        s.y = h.y + Math.sin(ang) * rad;
+        s.thrust = q < 0.6;
+        scale = 1 - q * q;
+      }
+      if (Math.hypot(s.x - px, s.y - py) > 0.3) s.a = Math.atan2(s.y - py, s.x - px);
+      s.vx = (s.x - px) / (dt || 1);
+      s.vy = (s.y - py) / (dt || 1);
+      if (p >= 1) { finish(); return; }
+    } else if (usingKeys) {
       if (s.keys.has('left')) s.a -= 0.075 * dt;
       if (s.keys.has('right')) s.a += 0.075 * dt;
       s.thrust = s.keys.has('up');
@@ -181,21 +226,23 @@ export function launchShip({ from } = {}) {
       s.thrust = d > 40;
       if (s.thrust) { const k = Math.min(0.45, d / 600); s.vx += Math.cos(s.a) * k * dt; s.vy += Math.sin(s.a) * k * dt; }
     }
-    s.vx *= Math.pow(0.975, dt);
-    s.vy *= Math.pow(0.975, dt);
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
-    // Sai por um lado, entra pelo outro
-    if (s.x < -20) s.x = W() + 20; if (s.x > W() + 20) s.x = -20;
-    if (s.y < -20) s.y = H() + 20; if (s.y > H() + 20) s.y = -20;
+    if (!back) {
+      s.vx *= Math.pow(0.975, dt);
+      s.vy *= Math.pow(0.975, dt);
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      // Sai por um lado, entra pelo outro
+      if (s.x < -20) s.x = W() + 20; if (s.x > W() + 20) s.x = -20;
+      if (s.y < -20) s.y = H() + 20; if (s.y > H() + 20) s.y = -20;
+    }
 
     if (s.thrust) {
-      bits.push({ x: s.x - Math.cos(s.a) * 12, y: s.y - Math.sin(s.a) * 12, vx: -s.vx * 0.2 + (Math.random() - 0.5), vy: -s.vy * 0.2 + (Math.random() - 0.5), life: 1, size: 2 + Math.random() * 2, hue: 195 + Math.random() * 25 });
+      bits.push({ x: s.x - Math.cos(s.a) * 12 * scale, y: s.y - Math.sin(s.a) * 12 * scale, vx: -s.vx * 0.2 + (Math.random() - 0.5), vy: -s.vy * 0.2 + (Math.random() - 0.5), life: scale, size: 2 + Math.random() * 2, hue: 195 + Math.random() * 25 });
     }
 
     // Coleta
     stars.forEach((st) => {
-      if (st.got || Math.hypot(st.x - s.x, st.y - s.y) > 26) return;
+      if (back || st.got || Math.hypot(st.x - s.x, st.y - s.y) > 26) return;
       st.got = true;
       score++;
       burst(st.x, st.y, 26, 40, 60, 4);
@@ -208,7 +255,7 @@ export function launchShip({ from } = {}) {
     });
 
     ctx.clearRect(0, 0, W(), H());
-    stars.forEach((st) => { if (!st.got) drawStar(st, t); });
+    if (!back) stars.forEach((st) => { if (!st.got) drawStar(st, t); });
     for (let i = bits.length - 1; i >= 0; i--) {
       const b = bits[i];
       b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.96; b.vy *= 0.96;
@@ -219,12 +266,21 @@ export function launchShip({ from } = {}) {
       ctx.arc(b.x, b.y, b.size * b.life, 0, TAU);
       ctx.fill();
     }
-    drawShip();
+    drawShip(scale);
     raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
 
-  function end() {
+  // Sair (Esc ou fim do jogo) leva a nave de volta ao buraco; now = some na hora
+  function end({ now = false } = {}) {
+    if (!ship) return;
+    if (now || matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); return; }
+    if (back) return;
+    back = { x: s.x, y: s.y };
+    hud.remove();
+  }
+
+  function finish() {
     if (!ship) return;
     cancelAnimationFrame(raf);
     removeEventListener('keydown', onKey);
@@ -234,7 +290,7 @@ export function launchShip({ from } = {}) {
     dispose();
     hud.remove();
     ship = null;
-    if (!done) toast('A nave voltou para o buraco negro. 🕳️');
+    toast(`A nave voltou para o ${holeName()}. ${isWhiteHole() ? '⚪' : '🕳️'}`);
   }
   ship = { end };
 }
