@@ -280,7 +280,7 @@ function initEasterEggs() {
     clicks.push(now);
     if (clicks.length >= 7) {
       clicks = [];
-      import('./easter.js').then((m) => m.launchShip({ from: holeOnScreen() }));
+      import('./easter.js').then((m) => m.launchShip({ from: holeOnScreen(), home: holeOnScreen }));
     }
   });
 }
@@ -649,16 +649,20 @@ const period = (e) => {
 };
 
 function renderJourney(items = []) {
+  // Em destaque só o trabalho atual; os anteriores vão para a linha do tempo "Experiência"
   const jobs = items.filter((e) => e.kind === 'trabalho');
-  slot('journey-now').innerHTML = jobs
+  const now = slot('journey-now');
+  now.innerHTML = jobs
+    .filter((e) => e.is_current)
     .map((e) => `
       <article class="job">
-        <span class="job__badge">${e.is_current ? 'Trabalhando agora' : esc(period(e))}</span>
+        <span class="job__badge">Trabalhando agora</span>
         <h3 class="job__title">${esc(e.title)}</h3>
-        <p class="job__org">${esc(e.institution)}${e.is_current ? ` · desde ${esc(formatDate(e.start_date, { month: 'short', year: 'numeric' }))}` : ''}</p>
+        <p class="job__org">${esc(e.institution)} · desde ${esc(formatDate(e.start_date, { month: 'short', year: 'numeric' }))}</p>
         ${e.description ? `<p class="job__desc">${esc(e.description)}</p>` : ''}
       </article>`)
     .join('');
+  now.hidden = !now.firstElementChild;
 
   const step = (e) => `
     <li class="step reveal">
@@ -672,6 +676,7 @@ function renderJourney(items = []) {
       </div>` : ''}
     </li>`;
   const line = '<li class="timeline__line" aria-hidden="true"><i></i></li>';
+  slot('journey-trabalho').innerHTML = line + jobs.filter((e) => !e.is_current).map(step).join('');
   slot('journey-formacao').innerHTML = line + items.filter((e) => e.kind === 'formacao').map(step).join('');
   slot('journey-curso').innerHTML = line + items.filter((e) => e.kind === 'curso').map(step).join('');
   $$('.timeline').forEach((t) => { t.hidden = !$('li.step', t); });

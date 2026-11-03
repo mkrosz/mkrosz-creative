@@ -562,8 +562,8 @@ body:not(.is-ready) .dock { transform: translate(-50%, 140%); opacity: 0; }
 .job__org { margin: 0; font-weight: 600; opacity: .8; }
 .job__desc { margin: 6px 0 0; opacity: .7; }
 
-.journey__cols { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 80px); }
-@media (max-width: 860px) { .journey__cols { grid-template-columns: 1fr; } }
+.journey__now[hidden] { display: none; }
+.journey__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: clamp(32px, 6vw, 80px); }
 .timeline { --p: 0; position: relative; }
 .timeline__head { margin: 0 0 24px; font-size: 14px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .timeline ol { position: relative; margin: 0; padding: 0 0 0 28px; list-style: none; }
