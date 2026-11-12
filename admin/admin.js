@@ -357,7 +357,7 @@ function fieldHtml(fd, value) {
     case 'image':
       // Clicar (ou soltar um arquivo em cima) abre o seletor de arquivos
       return `<div class="${cls}"><span class="field-label">${label}</span>
-        <div class="upload${v ? ' has-file' : ''}" data-upload="${fd.accept || 'image/*'}" data-folder="${fd.folder || 'imagens'}">
+        <div class="upload${v ? ' has-file' : ''}" data-upload="${fd.accept || 'image/*'}" data-folder="${fd.folder || 'imagens'}" data-ratio="${fd.ratio || 0}" data-label="${esc(fd.label)}">
           <button class="upload__drop" type="button" data-upload-pick aria-label="${fd.label}: escolher arquivo">
             <span class="upload__preview" data-preview>${previewHtml(v)}</span>
             <span class="upload__text">
@@ -533,7 +533,15 @@ function setUpload(box, url, kind) {
   $('[data-upload-title]', box).textContent = url ? 'Trocar arquivo' : 'Clique para enviar';
   hidden.dispatchEvent(new Event('input', { bubbles: true }));
 }
+// Antes de enviar uma foto, abre o editor (cortar, girar, ajustar). null = cancelou.
+async function editBeforeUpload(file, opts) {
+  if (!file.type.startsWith('image/') || !FILE_TYPES.includes(file.type)) return file; // o envio recusa com a mensagem certa
+  const { editPhoto } = await import('./photo-editor.js');
+  return editPhoto(file, opts);
+}
 async function uploadInto(box, file) {
+  file = await editBeforeUpload(file, { ratio: +box.dataset.ratio || 0, title: `Ajustar: ${box.dataset.label || 'foto'}` });
+  if (!file) return;
   const title = $('[data-upload-title]', box);
   box.classList.add('is-busy');
   title.textContent = 'Enviando…';
@@ -847,7 +855,7 @@ const SECTIONS = [
     id: 'sobre', label: 'Sobre mim', desc: 'Texto, foto e habilidades.', kind: 'settings',
     fields: [
       f('about_title', 'Título da seção'),
-      f('about_image_url', 'Sua foto', 'image', { folder: 'sobre' }),
+      f('about_image_url', 'Sua foto', 'image', { folder: 'sobre', ratio: 4 / 5 }),
       f('about_text', 'Texto sobre você', 'textarea', { full: true, rows: 4, help: 'As palavras acendem uma a uma conforme o visitante rola a página.' }),
       f('skills', 'Habilidades / ferramentas', 'list', { full: true, help: 'Viram cards com ícone no “Sobre mim” e aparecem na faixa animada abaixo do hero. Ferramentas como Figma, Photoshop, Illustrator, After Effects, XD, Blender e Canva ganham o logo; áreas como UX, UI, Branding e Motion ganham um ícone; o resto mostra as iniciais.' }),
     ],
@@ -862,7 +870,7 @@ const SECTIONS = [
       f('end_date', 'Conclusão', 'date'),
       f('is_current', 'Em andamento / trabalho atual', 'bool', { full: true }),
       f('description', 'Descrição curta', 'textarea', { full: true, rows: 3 }),
-      f('certificate_url', 'Certificado (imagem ou PDF)', 'image', { full: true, accept: 'image/*,application/pdf', folder: 'certificados', help: 'Use uma imagem deitada em 16:9 (ex.: 1600×900). No site ela aparece numa moldura 16:9.' }),
+      f('certificate_url', 'Certificado (imagem ou PDF)', 'image', { full: true, accept: 'image/*,application/pdf', folder: 'certificados', ratio: 16 / 9, help: 'Use uma imagem deitada em 16:9 (ex.: 1600×900). No site ela aparece numa moldura 16:9.' }),
       f('applied_text', 'O que apliquei no curso', 'textarea', { full: true, rows: 4, help: 'Aparece ao lado do certificado quando o visitante clica em “Ver certificado”.' }),
       f('credential_url', 'Link de validação do certificado', 'url', { full: true }),
     ],
@@ -1409,7 +1417,7 @@ const PROJECT_INFO_FIELDS = [
   f('short_description', 'Descrição curta', 'textarea', { full: true, rows: 3 }),
 ];
 const PROJECT_LOOK_FIELDS = [
-  f('cover_url', 'Capa', 'image', { full: true, folder: 'projetos', help: 'Aparece no card. Sem capa, usa a primeira imagem da galeria.' }),
+  f('cover_url', 'Capa', 'image', { full: true, folder: 'projetos', ratio: 4 / 3, help: 'Aparece no card. Sem capa, usa a primeira imagem da galeria.' }),
   f('accent_color', 'Cor do projeto', 'color', { help: 'Cor do brilho do card.' }),
   f('slug', 'Slug', 'text', { help: 'Link direto: #projeto/slug. Vazio = gerado pelo nome.' }),
 ];
@@ -1604,7 +1612,10 @@ function editProject(p) {
     const drop = $('#add-files');
     const title = $('strong', drop);
     drop.disabled = true;
-    for (const [k, file] of [...files].entries()) {
+    for (const [k, picked] of [...files].entries()) {
+      // cada foto passa pelo editor; cancelar pula só essa
+      const file = await editBeforeUpload(picked, { title: 'Ajustar foto da galeria', count: files.length > 1 ? `${k + 1} de ${files.length}` : '' });
+      if (!file) continue;
       title.textContent = `Enviando ${k + 1} de ${files.length}…`;
       try {
         const url = await db.upload(file, 'projetos', 'image/*,video/*');

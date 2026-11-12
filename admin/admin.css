@@ -269,6 +269,50 @@ select.input { appearance: none; padding-right: 36px; background-image: url("dat
 .confirm::backdrop { background: color-mix(in oklab, #000 62%, transparent); }
 .confirm h2 { margin: 0 0 8px; font-size: 24px; letter-spacing: -.035em; }
 .confirm__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+
+/* ---------- Editor de foto (antes do envio) ---------- */
+.photo-ed { width: min(760px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--bg); color: var(--fg); box-shadow: 0 20px 50px -24px rgb(0 0 0 / .5); }
+.photo-ed::backdrop { background: color-mix(in oklab, #000 62%, transparent); }
+.photo-ed__box { display: grid; gap: 14px; padding: 20px 22px; }
+.photo-ed__head { display: flex; align-items: baseline; gap: 10px; }
+.photo-ed__head h2 { margin: 0; font-size: 22px; letter-spacing: -.035em; }
+.photo-ed__count { font-size: 13px; }
+/* xadrez no fundo: mostra onde a imagem é transparente */
+.photo-ed__stage {
+  position: relative; height: min(52dvh, 420px); overflow: hidden; border-radius: 14px; cursor: grab; touch-action: none; outline: none;
+  background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 20px 20px;
+}
+.photo-ed__stage:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.photo-ed__stage.is-dragging { cursor: grabbing; }
+.photo-ed__stage canvas { position: absolute; inset: 0; }
+/* moldura do corte: escurece o que fica de fora e mostra a grade dos terços */
+.photo-ed__frame {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none;
+  border: 1.5px solid #fff; box-shadow: 0 0 0 100vmax rgb(0 0 0 / .55);
+  background:
+    linear-gradient(90deg, transparent calc(33.33% - .5px), rgb(255 255 255 / .35) 0 calc(33.33% + .5px), transparent 0 calc(66.66% - .5px), rgb(255 255 255 / .35) 0 calc(66.66% + .5px), transparent 0),
+    linear-gradient(transparent calc(33.33% - .5px), rgb(255 255 255 / .35) 0 calc(33.33% + .5px), transparent 0 calc(66.66% - .5px), rgb(255 255 255 / .35) 0 calc(66.66% + .5px), transparent 0);
+}
+.photo-ed__hint { margin: -6px 0 0; font-size: 12.5px; text-align: center; }
+.photo-ed__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.photo-ed__bar .seg { overflow-x: auto; max-width: 100%; }
+.photo-ed__bar .seg button { min-height: 32px; padding: 0 12px; }
+.photo-ed__tools { display: flex; gap: 6px; }
+.photo-ed__sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 18px; }
+.photo-ed__slider { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+.photo-ed__slider span { display: flex; align-items: center; gap: 6px; }
+.photo-ed__slider .i { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.photo-ed__slider output { margin-left: auto; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.photo-ed__slider input { width: 100%; accent-color: var(--accent); }
+.photo-ed__foot { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+@media (max-width: 560px) {
+  .photo-ed__box { gap: 12px; padding: 16px; }
+  .photo-ed__stage { height: 36dvh; }
+  .photo-ed__hint { display: none; }
+  .photo-ed__foot .spacer { display: none; }
+  .photo-ed__foot .btn { flex: 1 1 40%; white-space: nowrap; }
+  .photo-ed__foot .btn--primary { flex-basis: 100%; order: -1; }
+}
 /* Avisos em pílula de vidro, como a navbar do site */
 .toasts { position: fixed; left: 50%; bottom: 16px; z-index: 120; display: grid; justify-items: center; gap: 8px; transform: translateX(-50%); }
 .toast {
