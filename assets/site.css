@@ -632,7 +632,9 @@ body:not(.is-ready) .dock { transform: translate(-50%, 140%); opacity: 0; }
 }
 .pm__close { position: absolute; right: 14px; top: 14px; z-index: 3; background: color-mix(in oklab, var(--bg) 80%, transparent); }
 .pm__stage { grid-area: stage; position: relative; min-height: 0; background: #000; }
-.pm__viewer { position: absolute; inset: 0; display: grid; overflow: hidden; }
+/* Uma célula do tamanho exato do palco: sem isso a linha da grade cresce até a
+   altura natural da imagem e fotos em pé (ou muito largas) saem cortadas. */
+.pm__viewer { position: absolute; inset: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); overflow: hidden; }
 /* YouTube com controles próprios */
 .pm__embed { position: relative; overflow: hidden; background: #000; container-type: size; display: grid; place-items: center; }
 /* Recorte do tamanho exato do vídeo (16:9). O player fica 180px mais alto que o
@@ -662,8 +664,7 @@ body:not(.is-ready) .dock { transform: translate(-50%, 140%); opacity: 0; }
 .pm__ctrl .pm__ctrl-main:hover { background: #fff; transform: scale(1.06); }
 .pm__ctrl-main .i-play, .pm__embed.is-paused .pm__ctrl-main .i-pause { display: none; }
 .pm__embed.is-paused .pm__ctrl-main .i-play { display: block; }
-.pm__viewer > * { grid-area: 1 / 1; width: 100%; height: 100%; border: 0; object-fit: contain; }
-.pm__nav { position: absolute; top: 50%; z-index: 3; margin-top: -22px; width: 44px; height: 44px; background: rgb(255 255 255 / .9); color: #111; } /* acima da camada de clique do vídeo */
+.pm__viewer > * { grid-area: 1 / 1; width: 100%; height: 100%; min-width: 0; min-height: 0; border: 0; object-fit: contain; }.pm__nav { position: absolute; top: 50%; z-index: 3; margin-top: -22px; width: 44px; height: 44px; background: rgb(255 255 255 / .9); color: #111; } /* acima da camada de clique do vídeo */
 .pm__nav:hover { background: #fff; }
 .pm__nav--prev { left: 14px; }
 .pm__nav--next { right: 14px; }
