@@ -365,6 +365,7 @@ function fieldHtml(fd, value) {
               <small>ou arraste até aqui</small>
             </span>
           </button>
+          <button class="btn btn--icon btn--sm btn--ghost upload__edit" type="button" data-upload-edit aria-label="${fd.label}: editar imagem" title="Editar imagem"${canReedit(v) ? '' : ' hidden'}>${ICON.edit}</button>
           <button class="btn btn--icon btn--sm btn--ghost upload__clear" type="button" data-upload-clear aria-label="${fd.label}: remover arquivo" title="Remover arquivo">${ICON.trash}</button>
           <input type="hidden" name="${fd.key}" value="${esc(v)}">
         </div></div>`;
@@ -385,6 +386,7 @@ const ICON = {
   x: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   trash: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
   sort: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/></svg>',
+  grip: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
   edit: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>',
   prev: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>',
   next: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
@@ -488,6 +490,8 @@ document.addEventListener('click', (e) => {
   }
   const clear = e.target.closest('[data-upload-clear]');
   if (clear) setUpload(clear.closest('[data-upload]'), '');
+  const edit = e.target.closest('[data-upload-edit]');
+  if (edit) editUploaded(edit.closest('[data-upload]'));
   const rm = e.target.closest('[data-list-remove]');
   if (rm) {
     const wrap = rm.closest('[data-list]');
@@ -531,6 +535,7 @@ function setUpload(box, url, kind) {
   box.classList.toggle('has-file', !!url);
   $('[data-preview]', box).innerHTML = previewHtml(url, kind);
   $('[data-upload-title]', box).textContent = url ? 'Trocar arquivo' : 'Clique para enviar';
+  $('[data-upload-edit]', box).hidden = !canReedit(url, kind);
   hidden.dispatchEvent(new Event('input', { bubbles: true }));
 }
 // Antes de enviar uma foto, abre o editor (cortar, girar, ajustar). null = cancelou.
@@ -538,6 +543,46 @@ async function editBeforeUpload(file, opts) {
   if (!file.type.startsWith('image/') || !FILE_TYPES.includes(file.type)) return file; // o envio recusa com a mensagem certa
   const { editPhoto } = await import('./photo-editor.js');
   return editPhoto(file, opts);
+}
+// Editar de novo uma imagem que já foi enviada: baixa, abre o editor e envia a
+// versão nova. Devolve o novo endereço, ou null se cancelou/não deu para editar.
+const canReedit = (url, kind) => !!url && kind !== 'video' && mediaKind({ url }) === 'image' && !/\.(gif|svg|pdf)(\?|$)/i.test(url);
+async function reeditImage(url, folder, opts = {}) {
+  let file;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const blob = await res.blob();
+    const name = decodeURIComponent(new URL(url, location.href).pathname.split('/').pop() || '') || 'foto.jpg';
+    file = new File([blob], name, { type: blob.type });
+  } catch {
+    toast('Não deu para abrir essa imagem para editar.', 'error');
+    return null;
+  }
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') {
+    toast('Esse tipo de imagem não pode ser editado.', 'error');
+    return null;
+  }
+  const edited = await editBeforeUpload(file, { ...opts, reedit: true });
+  if (!edited || edited === file) return null;
+  try {
+    const next = await db.upload(edited, folder, 'image/*');
+    toast('Imagem atualizada');
+    return next;
+  } catch (err) {
+    toast(errorMessage(err), 'error');
+    return null;
+  }
+}
+async function editUploaded(box) {
+  const url = $('input[type="hidden"]', box).value;
+  box.classList.add('is-busy');
+  try {
+    const next = await reeditImage(url, box.dataset.folder, { ratio: +box.dataset.ratio || 0, title: `Editar: ${box.dataset.label || 'foto'}` });
+    if (next) setUpload(box, next, 'image');
+  } finally {
+    box.classList.remove('is-busy');
+  }
 }
 async function uploadInto(box, file) {
   file = await editBeforeUpload(file, { ratio: +box.dataset.ratio || 0, title: `Ajustar: ${box.dataset.label || 'foto'}` });
@@ -1423,6 +1468,122 @@ const PROJECT_LOOK_FIELDS = [
 ];
 const PROJECT_FIELDS = [...PROJECT_INFO_FIELDS, ...PROJECT_LOOK_FIELDS];
 
+// Mudar a posição arrastando (mídias e links do projeto). Segura pela alça
+// [data-drag] (ou, com o mouse, pela própria miniatura) e solta no lugar.
+// Os outros itens abrem espaço com uma animação. Na alça, as setas também movem.
+function makeSortable(el, arr, draw) {
+  const items = () => [...el.children].filter((n) => n.dataset.i !== undefined);
+  const scroller = el.closest('.drawer__body');
+  let drag = null;
+
+  const commit = () => {
+    const order = items().map((n) => Number(n.dataset.i));
+    if (order.some((i, k) => i !== k)) drawerDirty = true;
+    arr.splice(0, arr.length, ...order.map((i) => arr[i]));
+    draw();
+  };
+
+  // anima quem mudou de lugar (FLIP)
+  const shift = (target, before) => {
+    const others = items().filter((n) => n !== drag.item);
+    const first = new Map(others.map((n) => [n, n.getBoundingClientRect()]));
+    target[before ? 'before' : 'after'](drag.item);
+    others.forEach((n) => {
+      const a = first.get(n), b = n.getBoundingClientRect();
+      const dx = a.left - b.left, dy = a.top - b.top;
+      if (dx || dy) n.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+    });
+  };
+
+  const frame = () => {
+    if (!drag?.on) return;
+    step();
+    requestAnimationFrame(frame);
+  };
+  const step = () => {
+    const { item, x, y } = drag;
+    // perto das bordas da gaveta, rola sozinho
+    if (scroller) {
+      const r = scroller.getBoundingClientRect();
+      if (y < r.top + 48) scroller.scrollTop -= 10;
+      else if (y > r.bottom - 48) scroller.scrollTop += 10;
+    }
+    // em cima de outro item (que não esteja se mexendo): troca de lugar
+    const target = items().find((n) => {
+      if (n === item || n.getAnimations().length) return false;
+      const r = n.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    });
+    if (target && target !== drag.last) {
+      const list = items();
+      shift(target, list.indexOf(item) > list.indexOf(target));
+    }
+    drag.last = target;
+    // o item segue o ponteiro
+    item.style.transform = '';
+    const r = item.getBoundingClientRect();
+    item.style.transform = `translate(${x - drag.gx - r.left}px, ${y - drag.gy - r.top}px)`;
+  };
+
+  const onMove = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (!drag.on && Math.hypot(drag.x - drag.x0, drag.y - drag.y0) > 5) {
+      drag.on = true;
+      const r = drag.item.getBoundingClientRect();
+      drag.gx = drag.x0 - r.left; drag.gy = drag.y0 - r.top;
+      drag.item.classList.add('is-dragging');
+      document.body.classList.add('is-drag-sorting');
+      requestAnimationFrame(frame);
+    }
+  };
+  const onUp = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (drag.on) { drag.x = e.clientX; drag.y = e.clientY; step(); } // arrasto rápido: confere onde soltou
+    const { item, on } = drag;
+    drag = null;
+    removeEventListener('pointermove', onMove);
+    removeEventListener('pointerup', onUp);
+    removeEventListener('pointercancel', onUp);
+    document.body.classList.remove('is-drag-sorting');
+    if (!on) return;
+    // solta: desliza até o lugar novo e salva a ordem
+    const from = item.style.transform;
+    item.style.transform = '';
+    item.animate([{ transform: from }, { transform: 'none' }], { duration: 180, easing: 'ease-out' })
+      .finished.catch(() => {}).then(() => { item.classList.remove('is-dragging'); commit(); });
+  };
+
+  el.addEventListener('pointerdown', (e) => {
+    if (drag || e.button !== 0 || items().length < 2) return;
+    // alça em qualquer aparelho; com o mouse, o cartão da mídia inteiro (menos legenda e botões)
+    const handle = e.target.closest('[data-drag]')
+      || (e.pointerType === 'mouse' && !e.target.closest('input, select, textarea, button, a') && e.target.closest('.repeater--grid [data-i]'));
+    if (!handle) return;
+    e.preventDefault(); // não seleciona texto nem arrasta a imagem do navegador
+    drag = { item: handle.closest('[data-i]'), id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, last: null };
+    addEventListener('pointermove', onMove);
+    addEventListener('pointerup', onUp);
+    addEventListener('pointercancel', onUp);
+  });
+  // a miniatura não vira "arrastar imagem" do navegador
+  el.addEventListener('dragstart', (e) => { if (!e.target.closest?.('input, textarea')) e.preventDefault(); });
+
+  // teclado: setas na alça movem uma posição
+  el.addEventListener('keydown', (e) => {
+    const handle = e.target.closest('[data-drag]');
+    const step = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 }[e.key];
+    if (!handle || !step) return;
+    e.preventDefault();
+    const i = Number(handle.closest('[data-i]').dataset.i), j = i + step;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    drawerDirty = true;
+    draw();
+    $(`[data-i="${j}"] [data-drag]`, el)?.focus();
+  });
+}
+
 function editProject(p) {
   const isNew = !p.id;
   const state = isNew ? 'draft' : projectState(p);
@@ -1484,12 +1645,11 @@ function editProject(p) {
             <button class="btn btn--primary" type="button" id="add-yt">Adicionar vídeo</button>
           </div>
         </div>
-        <div class="pane-head pane-head--end"><button class="btn btn--ghost btn--sm" type="button" data-sort-rep="rep-media" aria-pressed="false">${ICON.sort}Editar posições</button></div>
+        <p class="muted pane-hint" id="media-hint">Segure e arraste uma mídia para mudar a posição. A primeira aparece primeiro no site.</p>
         <div class="repeater repeater--grid" id="rep-media"></div>
       </section>
       <section class="pane" data-pane="links" role="tabpanel" hidden>
-        <div class="pane-head"><button class="btn btn--primary btn--sm" type="button" id="add-link">Adicionar link</button>${tip('Cole o link: a rede é reconhecida pelo endereço e o botão no site ganha o texto “Ver no Behance”, “Ver no LinkedIn”…')}
-          <button class="btn btn--ghost btn--sm" type="button" data-sort-rep="rep-links" aria-pressed="false">${ICON.sort}Editar posições</button></div>
+        <div class="pane-head"><button class="btn btn--primary btn--sm" type="button" id="add-link">Adicionar link</button>${tip('Cole o link: a rede é reconhecida pelo endereço e o botão no site ganha o texto “Ver no Behance”, “Ver no LinkedIn”…')}</div>
         <div class="repeater" id="rep-links"></div>
       </section>`,
     onSave: async (form, { alt }) => {
@@ -1528,10 +1688,11 @@ function editProject(p) {
 
   const repMedia = $('#rep-media');
   const repLinks = $('#rep-links');
-  const tools = (i, n) => `<div class="rep-item__tools">
-    <button class="btn btn--icon btn--sm btn--ghost" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">${ICON.up}</button>
-    <button class="btn btn--icon btn--sm btn--ghost" type="button" data-down="${i}" ${i === n - 1 ? 'disabled' : ''} aria-label="Descer">${ICON.down}</button>
-    <button class="btn btn--icon btn--sm btn--danger" type="button" data-remove="${i}" aria-label="Remover">${ICON.x}</button></div>`;
+  // Alça para arrastar (mouse, dedo ou setas do teclado), editar a foto e remover
+  const tools = (i, n, extra = '') => `<div class="rep-item__tools">
+    ${n > 1 ? `<button class="btn btn--icon btn--sm btn--ghost rep-item__grip" type="button" data-drag aria-label="Mudar a posição (${i + 1} de ${n}): arraste ou use as setas" title="Segure e arraste para mudar a posição">${ICON.grip}</button>` : ''}
+    ${extra}
+    <button class="btn btn--icon btn--sm btn--danger" type="button" data-remove="${i}" aria-label="Remover" title="Remover">${ICON.x}</button></div>`;
 
   let drawMedia = () => {
     repMedia.innerHTML = media.length ? media.map((m, i) => `
@@ -1539,7 +1700,7 @@ function editProject(p) {
         <div class="rep-item__thumb">${previewHtml(m.url, m.type === 'video' ? 'video' : undefined)}
           <span class="rep-item__kind">${m.type === 'embed' || youtubeId(m.url) ? 'YouTube' : m.type === 'video' ? 'Vídeo' : 'Imagem'}</span></div>
         <input class="input" type="text" data-k="caption" value="${esc(m.caption || '')}" placeholder="Legenda (opcional)" aria-label="Legenda">
-        ${tools(i, media.length)}
+        ${tools(i, media.length, canReedit(m.url, m.type) ? `<button class="btn btn--icon btn--sm btn--ghost" type="button" data-reedit="${i}" aria-label="Editar imagem" title="Editar imagem">${ICON.edit}</button>` : '')}
       </div>`).join('') : '<p class="muted">Nenhuma mídia ainda.</p>';
   };
 
@@ -1572,22 +1733,24 @@ function editProject(p) {
       if (arr === links) obj.label = '';
     });
     el.addEventListener('change', (e) => { if (e.target.tagName === 'SELECT') e.target.dispatchEvent(new Event('input', { bubbles: true })); });
-    el.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-up], [data-down], [data-remove]');
+    el.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-remove], [data-reedit]');
       if (!b) return;
-      if (b.dataset.remove !== undefined) arr.splice(Number(b.dataset.remove), 1);
-      const i = Number(b.dataset.up ?? b.dataset.down);
-      const j = b.dataset.up !== undefined ? i - 1 : i + 1;
-      if (b.dataset.remove === undefined) [arr[i], arr[j]] = [arr[j], arr[i]];
-      draw();
+      if (b.dataset.remove !== undefined) { arr.splice(Number(b.dataset.remove), 1); draw(); return; }
+      // Editar de novo uma foto da galeria: troca pelo arquivo editado
+      const i = Number(b.dataset.reedit);
+      const item = b.closest('[data-i]');
+      item.classList.add('is-busy');
+      const url = await reeditImage(arr[i].url, 'projetos', { title: 'Editar foto da galeria' });
+      item.classList.remove('is-busy');
+      if (url) { arr[i].url = url; drawerDirty = true; draw(); }
     });
+    makeSortable(el, arr, draw);
   };
   // Contadores nas abas
   const baseMedia = drawMedia, baseLinks = drawLinks;
-  // o botão "Editar posições" só aparece com 2 itens ou mais
-  const sortBtn = (id, n) => { const b = $(`[data-sort-rep="${id}"]`); b.hidden = n < 2; };
-  drawMedia = () => { baseMedia(); $('#count-media').textContent = media.length || ''; sortBtn('rep-media', media.length); };
-  drawLinks = () => { baseLinks(); $('#count-links').textContent = links.length || ''; sortBtn('rep-links', links.length); };
+  drawMedia = () => { baseMedia(); $('#count-media').textContent = media.length || ''; $('#media-hint').hidden = media.length < 2; };
+  drawLinks = () => { baseLinks(); $('#count-links').textContent = links.length || ''; };
   bindRepeater(repMedia, media, () => drawMedia());
   bindRepeater(repLinks, links, () => drawLinks());
   drawMedia();

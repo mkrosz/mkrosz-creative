@@ -529,8 +529,7 @@ select.input { appearance: none; padding-right: 36px; background-image: url("dat
 }
 
 /* ---------- Ordem: as setas só aparecem em "Editar posições" ---------- */
-.content:not(.is-sorting) .row [data-move],
-.repeater:not(.is-sorting) :is([data-up], [data-down]) { display: none; }
+.content:not(.is-sorting) .row [data-move] { display: none; }
 /* ordenando: só as setas na linha, sem editar/excluir/estrela */
 .content.is-sorting .row__tools > :not([data-move]) { display: none; }
 .content.is-sorting .row { border-style: dashed; }
@@ -587,7 +586,24 @@ select.input { appearance: none; padding-right: 36px; background-image: url("dat
 .media-add__drop { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; }
 .media-add__drop .i { margin: 0; }
 .media-add__drop small { margin-left: -4px; }
-.repeater.is-sorting [data-remove] { display: none; }
+
+/* Mídias e links do projeto: segurar e arrastar para mudar a posição (ver makeSortable) */
+.rep-item__grip { cursor: grab; touch-action: none; }
+@media (pointer: fine) { .repeater--grid .rep-item { cursor: grab; } .repeater--grid .rep-item .input { cursor: text; } }
+.repeater--grid .rep-item__thumb :is(img, video) { -webkit-user-drag: none; user-select: none; }
+.rep-item.is-dragging {
+  z-index: 5; cursor: grabbing; border-color: var(--accent);
+  box-shadow: 0 22px 44px -14px rgb(0 0 0 / .55), 0 0 0 1px var(--accent);
+}
+.rep-item.is-dragging .rep-item__thumb { cursor: grabbing; }
+body.is-drag-sorting, body.is-drag-sorting * { cursor: grabbing !important; user-select: none; }
+.rep-item.is-busy { opacity: .6; pointer-events: none; }
+.pane-hint { margin: 0; font-size: 13px; }
+.pane-hint[hidden] { display: none; }
+.rep-item--link { position: relative; }
+/* Campo de arquivo: lápis para editar a imagem já enviada */
+.upload__edit { flex: none; }
+.upload__edit[hidden], .upload:not(.has-file) .upload__edit, .upload.is-busy .upload__edit { display: none; }
 
 /* ---------- Paginação (igual à de projetos do site) ---------- */
 .pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; }

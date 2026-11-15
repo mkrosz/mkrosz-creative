@@ -221,9 +221,9 @@ Dentro vêm o `banco.sql` (os dados do portfólio: textos, projetos, tags, traje
 | Textos & rodapé | Títulos das seções e textos do rodapé |
 | Cores & tema | 6 cores (destaque, fundo e texto dos temas claro/escuro) editadas direto na prévia, em HEX, RGB, CMYK, HSV ou HSL, + tema padrão |
 
-Ao enviar uma foto (capa, galeria, sua foto, logo, certificado), abre antes o **editor de foto**: corte numa proporção (Original, 1:1, 4:3, 4:5, 16:9, 9:16 — cada campo já abre na proporção em que a foto aparece no site), arraste e dê zoom para enquadrar, gire, espelhe e ajuste brilho, contraste e saturação. **Enviar sem editar** manda o arquivo como está; na galeria, cancelar pula só aquela foto. PNG e WebP continuam com o fundo transparente; o arquivo final tem no máximo 2560 px no maior lado. GIF e vídeo vão direto, sem editor.
+Ao enviar uma foto (capa, galeria, sua foto, logo, certificado), abre antes o **editor de foto**: corte numa proporção (Original, 1:1, 4:3, 4:5, 16:9, 9:16 — cada campo já abre na proporção em que a foto aparece no site), arraste e dê zoom para enquadrar, gire, espelhe e ajuste brilho, contraste e saturação. **Enviar sem editar** manda o arquivo como está; na galeria, cancelar pula só aquela foto. PNG e WebP continuam com o fundo transparente; o arquivo final tem no máximo 2560 px no maior lado. GIF e vídeo vão direto, sem editor. Depois de enviada, a foto pode ser editada de novo pelo **lápis** (na galeria do projeto e nos campos de imagem): a versão editada substitui a anterior.
 
-Em listas com mais de um item, **Editar posições** mostra as setas para mudar a ordem (em Projetos e Trajetória dá para ordenar pela data). Fechar uma edição ou trocar de seção sem salvar pede confirmação.
+Em listas com mais de um item, **Editar posições** mostra as setas para mudar a ordem (em Projetos e Trajetória dá para ordenar pela data). Nas mídias e nos links de um projeto, basta **segurar e arrastar** para o lugar desejado (pela alça de pontinhos ou, com o mouse, pelo cartão da mídia); com a alça em foco, as setas do teclado também movem. Fechar uma edição ou trocar de seção sem salvar pede confirmação.
 
 Links úteis do portfólio: `/#projeto/slug-do-projeto` abre direto o modal de um projeto, e `/?tag=ux&q=app` abre a lista já filtrada.
 

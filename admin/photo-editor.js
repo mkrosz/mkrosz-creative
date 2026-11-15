@@ -92,7 +92,8 @@ function applyPixels(ctx, w, h, a) {
   ctx.putImageData(data, 0, 0);
 }
 
-export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count = '' } = {}) {
+// reedit: a foto já está no projeto; sem "Enviar sem editar" (cancelar já deixa como está)
+export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count = '', reedit = false } = {}) {
   if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
   let loaded;
   try { loaded = await loadImage(file); } catch { return file; } // o navegador não abre: envia como veio
@@ -207,6 +208,8 @@ export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count
 
   $('#photo-ed-title').textContent = title;
   $('[data-count]').textContent = count;
+  $('[value="skip"]').hidden = reedit;
+  $('[value="ok"]').textContent = reedit ? 'Aplicar' : 'Aplicar e enviar';
   dlg.returnValue = '';
   sync();
   dlg.showModal();
