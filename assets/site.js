@@ -700,10 +700,13 @@ let lastFocus = null;
 
 // Apresentação automática: imagem fica IMAGE_MS na tela; vídeo toca até o fim.
 // Depois passa para a próxima mídia (e volta para a primeira no final).
-// Qualquer navegação feita pela pessoa desliga a apresentação.
+// Navegar pelos lados pausa a apresentação; depois de RESUME_MS sem mexer, ela volta sozinha.
+// Mexer num vídeo (play/pausa/barra) desliga de vez até fechar o modal.
 const IMAGE_MS = 4500;
+const RESUME_MS = 10000;
 let autoplay = false;
 let slideTimer = 0;
+let resumeTimer = 0;
 
 function mediaHtml(m) {
   const kind = mediaKind(m);
@@ -736,7 +739,21 @@ const mediaList = () => (current.media.length ? current.media : [{ type: 'image'
 function stopAutoplay() {
   autoplay = false;
   clearTimeout(slideTimer);
+  clearTimeout(resumeTimer);
   $('.pm__bar', modal).hidden = true;
+}
+
+// Pausa e agenda a volta da apresentação (cada nova navegação reinicia a contagem)
+function pauseAutoplay() {
+  stopAutoplay();
+  if (reduced || mediaList().length < 2) return;
+  resumeTimer = setTimeout(() => {
+    if (modal.hidden) return;
+    autoplay = true;
+    const kind = mediaKind(mediaList()[mediaIndex]);
+    if (kind === 'image') showMedia(mediaIndex + 1);
+    else if (kind === 'video') $('.pm__bar', modal).hidden = false; // vídeo: segue até o fim e então passa
+  }, RESUME_MS);
 }
 
 function nextSlide() {
@@ -755,7 +772,7 @@ function runBar(ms) {
 }
 
 function showMedia(i, { user = false } = {}) {
-  if (user) stopAutoplay();
+  if (user) pauseAutoplay();
   const list = mediaList();
   const prev = mediaIndex;
   mediaIndex = (i + list.length) % list.length;
@@ -916,6 +933,7 @@ function openProject(p, { push = true } = {}) {
     : '';
   slot('pm-viewer').innerHTML = '';
   slot('pm-desc').scrollTop = 0;
+  clearTimeout(resumeTimer);
   autoplay = !reduced;
   mediaIndex = 0;
   showMedia(0);
@@ -1137,8 +1155,12 @@ function bindStaticUI() {
     if (e.target.closest('button') || $('.pm', modal).classList.contains('has-video')) return;
     toggleExpand();
   });
-  // Mexer no vídeo (play/pausa/barra) também conta como escolha da pessoa
-  slot('pm-viewer').addEventListener('pointerdown', () => { if (autoplay) stopAutoplay(); });
+  // Mexer no vídeo (play/pausa/barra) desliga a apresentação de vez;
+  // tocar numa imagem só pausa (volta depois de RESUME_MS)
+  slot('pm-viewer').addEventListener('pointerdown', () => {
+    if (mediaKind(mediaList()[mediaIndex]) !== 'image') stopAutoplay();
+    else if (autoplay) pauseAutoplay();
+  });
   window.addEventListener('hashchange', openFromHash);
 
   initNav();
