@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
+  <!-- Aberto como /admin (sem a barra), os caminhos relativos apontariam para a raiz e o painel ficaria em branco -->
+  <script>if (!/\/$|\.html$/.test(location.pathname)) location.replace(location.pathname + '/' + location.search + location.hash);</script>
   <!-- Ícone da aba: um buraco negro (sem arquivo extra) -->
   <link rel="icon" type="image/svg+xml" href="../shared/favicon.svg">
   <title>Painel do Portfólio</title>
