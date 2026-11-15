@@ -766,10 +766,11 @@ body:not(.is-ready) .dock { transform: translate(-50%, 140%); opacity: 0; }
 .pm__bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
 @keyframes pm-fill { to { width: 100%; } }
 /* Troca de mídia: a atual sai deslizando, a próxima entra do outro lado */
-.pm__viewer > .is-leaving { animation: pm-out .6s var(--ease) forwards; }
-.pm__viewer > .is-entering { animation: pm-in .6s var(--ease); }
-@keyframes pm-out { to { opacity: 0; transform: translateX(calc(var(--dir, 1) * -12%)) scale(.94); } }
-@keyframes pm-in { from { opacity: 0; transform: translateX(calc(var(--dir, 1) * 12%)) scale(1.04); } }
+/* Como um carrossel: as duas andam juntas, lado a lado, sem uma ficar por cima da outra */
+.pm__viewer > .is-leaving { animation: pm-out .55s var(--ease) forwards; pointer-events: none; }
+.pm__viewer > .is-entering { animation: pm-in .55s var(--ease); }
+@keyframes pm-out { from { transform: translateX(0); } to { transform: translateX(calc(var(--dir, 1) * -100%)); } }
+@keyframes pm-in { from { transform: translateX(calc(var(--dir, 1) * 100%)); } to { transform: translateX(0); } }
 
 @media (max-width: 899px) {
   #project-modal { padding: 0; }

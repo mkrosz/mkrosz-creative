@@ -767,7 +767,7 @@ function showMedia(i, { user = false } = {}) {
   viewer.style.setProperty('--dir', i < prev ? -1 : 1);
   const old = [...viewer.children];
   old.forEach((el) => {
-    el.classList.add('is-leaving');
+    el.classList.replace('is-entering', 'is-leaving') || el.classList.add('is-leaving');
     el.querySelector?.('video')?.pause();
     if (el.tagName === 'VIDEO') el.pause();
     setTimeout(() => el.remove(), reduced || !old.length ? 0 : 600);
