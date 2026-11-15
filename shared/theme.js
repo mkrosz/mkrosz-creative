@@ -13,8 +13,30 @@ export function currentTheme() {
 export function setTheme(theme, persist = true) {
   document.documentElement.dataset.theme = theme;
   if (persist) try { localStorage.setItem(KEY, theme); } catch { /* ignore */ }
+  syncFavicon();
   document.dispatchEvent(new CustomEvent('themechange', { detail: theme }));
 }
+
+// Ícone da aba do navegador: acompanha o tema. Com logos enviadas em Identidade,
+// usa a do tema atual; sem elas, o gato padrão (favicon.svg / favicon-light.svg).
+let faviconLogos = {};
+export function setFaviconLogos(light, dark) {
+  faviconLogos = { light, dark };
+  syncFavicon();
+}
+function syncFavicon() {
+  const link = document.querySelector('link[rel="icon"]');
+  if (!link) return;
+  link.dataset.base ||= link.getAttribute('href'); // o favicon.svg de cada página
+  const dark = currentTheme() === 'dark';
+  const { light: l, dark: d } = faviconLogos;
+  const custom = /^https?:/i.test((dark ? d || l : l || d) || '') ? (dark ? d || l : l || d) : '';
+  const href = custom || (dark ? link.dataset.base : link.dataset.base.replace(/favicon\.svg$/, 'favicon-light.svg'));
+  if (link.getAttribute('href') === href) return;
+  if (custom) link.removeAttribute('type'); else link.type = 'image/svg+xml';
+  link.href = href;
+}
+syncFavicon(); // o script do <head> já aplicou o tema
 
 export function toggleTheme() {
   setTheme(currentTheme() === 'dark' ? 'light' : 'dark');

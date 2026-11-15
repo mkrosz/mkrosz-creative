@@ -68,7 +68,8 @@ portfolio/
 │   ├── brand-paths.js    # ícones SVG das marcas (Simple Icons, CC0)
 │   ├── tool-paths.js     # ícones das ferramentas das habilidades
 │   ├── notfound.css/.js  # página 404
-│   ├── favicon.svg
+│   ├── favicon.svg       # ícone da aba (tema escuro); favicon-light.svg no claro
+│   ├── brand.js          # logos de Identidade no login e no 404 (e no ícone da aba)
 │   └── demo-data.js      # dados de exemplo (usados sem Supabase)
 ├── idv/                  # identidade visual + logos para baixar (idv/exportar/)
 ├── scripts/
@@ -211,7 +212,7 @@ Dentro vêm o `banco.sql` (os dados do portfólio: textos, projetos, tags, traje
 
 | Seção | O que você edita |
 | ----- | ---------------- |
-| Identidade | Nome, função, e-mail, localização, selo "disponível" e logo (uma para o tema claro e outra para o escuro; vazio = o gato padrão) |
+| Identidade | Nome, função, e-mail, localização, selo "disponível" e logo (uma para o tema claro e outra para o escuro; vazio = o gato padrão). A logo do tema atual aparece no site (inclusive no hero), no login do painel, no 404 e no ícone da aba do navegador |
 | Hero | Texto acima, título (use `*asteriscos*` para destacar palavras), subtítulo, botão |
 | Projetos | Nome, data, descrição curta, capa, cor, **tags** (busque uma que já existe ou crie uma nova ali mesmo), **várias imagens e vídeos** (upload ou link do YouTube/Vimeo), **links de publicação** (Behance, LinkedIn, Instagram, site… cada um vira um botão com o ícone da plataforma). Cada projeto pode estar **Publicado**, **Offline** (já foi publicado e saiu do ar) ou em **Rascunho**. A **estrela** escolhe o projeto destaque, que usa o próprio título e descrição do projeto |
 | Tags | Todas as tags em cards: renomear, trocar a cor, excluir. A busca e o filtro mostram em quais projetos (online, offline, rascunho) cada tag é usada, e as que não são usadas |

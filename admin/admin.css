@@ -751,6 +751,9 @@ body.is-drag-sorting, body.is-drag-sorting * { cursor: grabbing !important; user
 .auth__logo { justify-self: start; margin: -10px 0 -6px -14px; --ring: color-mix(in oklab, var(--bg) 62%, #01040c); }
 .auth__logo svg { display: block; width: 120px; height: 80px; overflow: visible; }
 [data-theme="dark"] .auth__logo .is-light, :root:not([data-theme="dark"]) .auth__logo .is-dark { display: none; }
+/* logo enviada em Identidade (no lugar do gato) */
+.auth__logo.is-custom { margin: 0 0 4px; }
+.auth__logo-img { display: block; width: 72px; height: 72px; object-fit: contain; }
 .auth__form { display: grid; gap: 14px; }
 .auth__form h1 { font-size: clamp(28px, 4vw, 34px); }
 .auth__form .btn { margin-top: 4px; }

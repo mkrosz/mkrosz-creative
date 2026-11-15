@@ -17,6 +17,13 @@
         d.dataset.theme = t || (def === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : def);
         [['--accent', s.color_accent], ['--accent-2', s.color_accent_2], ['--bg-light', s.color_bg_light], ['--fg-light', s.color_fg_light], ['--bg-dark', s.color_bg_dark], ['--fg-dark', s.color_fg_dark]]
           .forEach(function (p) { if (/^#[0-9a-f]{3,8}$/i.test(p[1] || '')) d.style.setProperty(p[0], p[1]); });
+        // ícone da aba no tema certo desde o início (depois quem cuida é o theme.js)
+        var dark = d.dataset.theme === 'dark', ic = dark ? (s.logo_dark_url || s.logo_url) : (s.logo_url || s.logo_dark_url), l = document.querySelector('link[rel="icon"]');
+        if (l) {
+          l.setAttribute('data-base', l.getAttribute('href'));
+          if (/^https?:/i.test(ic || '')) { l.removeAttribute('type'); l.href = ic; }
+          else if (!dark) l.href = l.getAttribute('data-base').replace(/favicon\.svg$/, 'favicon-light.svg');
+        }
       } catch (e) {}
     })();
   </script>

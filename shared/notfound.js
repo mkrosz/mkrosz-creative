@@ -6,11 +6,18 @@ import { injectLogo } from './logo.js';
 import { createBlackHole } from '../assets/blackhole.js';
 import { gravity, isWhiteHole } from './gravity.js';
 import { toggleTheme } from './theme.js';
+import { useBrandLogos, logoImgs } from './brand.js';
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 injectLogo();
+// o "0" do 404 vira a logo de Identidade (clara/escura conforme o tema), se houver
+useBrandLogos((logos) => {
+  const cat = document.querySelector('.nf__cat');
+  cat.innerHTML = logoImgs(logos, 'nf__logo');
+  cat.classList.add('is-custom');
+});
 
 // O mesmo 404 serve o site e o painel: em /admin/... só o título e os botões mudam
 if (location.pathname.startsWith('/admin')) {

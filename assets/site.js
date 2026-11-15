@@ -2,7 +2,7 @@
 //  Portfólio — renderização + interações. Zero dependências.
 // =====================================================================
 import { fetchPortfolio, readCache, isConfigured, formatDate, escapeHtml as esc, safeUrl, mediaKind, toEmbedUrl, youtubeId, normalizeText } from '../shared/api.js';
-import { initTheme, toggleTheme, applyColors } from '../shared/theme.js';
+import { initTheme, toggleTheme, applyColors, setFaviconLogos } from '../shared/theme.js';
 import { platform, platformIcon } from '../shared/platforms.js';
 import { createBlackHole } from './blackhole.js';
 import { placeholder } from '../shared/placeholder.js';
@@ -20,14 +20,16 @@ let blackHole = null;
 const state = { q: '', tags: new Set(), page: 1 };
 const PER_PAGE = 6; // projetos por página
 
-// Logo personalizada (Identidade no painel): troca o gato pelas imagens enviadas.
-// O topo do site é sempre escuro, então lá vai a versão do tema escuro.
+// Logo personalizada (Identidade no painel): troca o gato pelas imagens enviadas,
+// a do tema claro ou a do escuro conforme o tema (inclusive no hero). O ícone da
+// aba do navegador acompanha (ver setFaviconLogos).
 function renderLogo(s) {
   const light = s.logo_url, dark = s.logo_dark_url || light;
+  setFaviconLogos(light, dark);
   if (!light && !dark) return;
   const img = (src, cls) => `<img class="mk-logo-img ${cls}" src="${esc(safeUrl(src))}" alt="">`;
   $$('.mk-logo').forEach((el) => {
-    const html = el.classList.contains('hero__logo') ? img(dark, '') : img(light || dark, 'is-light') + img(dark, 'is-dark');
+    const html = img(light || dark, 'is-light') + img(dark, 'is-dark');
     const cls = el.getAttribute('class').replace(/\s*mk-logo--custom/, '');
     el.outerHTML = `<span class="${cls} mk-logo--custom" aria-hidden="true">${html}</span>`;
   });

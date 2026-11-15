@@ -5,11 +5,17 @@
 // =====================================================================
 import { SUPABASE_URL, SUPABASE_ANON_KEY, STORAGE_BUCKET } from '../shared/config.js';
 import { isConfigured, escapeHtml as esc, formatDate, mediaKind, safeUrl, youtubeId, normalizeText } from '../shared/api.js';
-import { applyColors, toggleTheme } from '../shared/theme.js';
+import { applyColors, toggleTheme, setFaviconLogos } from '../shared/theme.js';
 import { PLATFORMS, platformIcon, guessPlatform } from '../shared/platforms.js';
 import { injectLogo } from '../shared/logo.js';
+import { useBrandLogos, logoImgs } from '../shared/brand.js';
 
 injectLogo(); // o gato do mkrosz (menu lateral e login)
+// Login: a logo de Identidade (clara/escura conforme o tema) no lugar do gato
+useBrandLogos((logos) => {
+  const box = document.querySelector('#view-login .auth__logo');
+  if (box) { box.innerHTML = logoImgs(logos, 'auth__logo-img'); box.classList.add('is-custom'); }
+});
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -884,8 +890,8 @@ const SECTIONS = [
       f('role', 'Função / título', 'text', { required: true }),
       f('email', 'E-mail de contato', 'email'),
       f('location', 'Localização'),
-      f('logo_url', 'Logo — tema claro', 'image', { folder: 'identidade', accept: 'image/*', help: 'Opcional, para trocar a logo no futuro. Substitui o gato no site e no painel com o tema claro. Vazio (lixeira ao lado) = o gato padrão. Use PNG ou WebP com fundo transparente.' }),
-      f('logo_dark_url', 'Logo — tema escuro', 'image', { folder: 'identidade', accept: 'image/*', help: 'Usada com o tema escuro e no topo do site (que é sempre escuro). Vazio = usa a do tema claro.' }),
+      f('logo_url', 'Logo — tema claro', 'image', { folder: 'identidade', accept: 'image/*', help: 'Opcional, para trocar a logo no futuro. Substitui o gato no site e no painel com o tema claro, inclusive no hero e no ícone da aba do navegador. Vazio (lixeira ao lado) = o gato padrão. Use PNG ou WebP com fundo transparente.' }),
+      f('logo_dark_url', 'Logo — tema escuro', 'image', { folder: 'identidade', accept: 'image/*', help: 'Usada com o tema escuro (inclusive no hero e no ícone da aba do navegador). Vazio = usa a do tema claro.' }),
       f('available_for_work', 'Disponível para novos projetos', 'bool', { full: true, help: 'Mostra o selo verde no hero.' }),
     ],
   },
@@ -1096,6 +1102,7 @@ $('#side-nav').addEventListener('click', async (e) => {
 // Logo do menu: o gato padrão ou as imagens enviadas em Identidade (claro/escuro)
 function renderBrandMark() {
   const light = DATA.settings.logo_url, dark = DATA.settings.logo_dark_url || light;
+  setFaviconLogos(light, dark); // o ícone da aba acompanha o tema, como no site
   const cur = $('#open-profile .mark');
   if (!cur) return;
   const img = (src, cls) => `<img class="${cls}" src="${esc(safeUrl(src))}" alt="">`;
