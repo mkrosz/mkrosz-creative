@@ -93,7 +93,9 @@ function applyPixels(ctx, w, h, a) {
 }
 
 // reedit: a foto já está no projeto; sem "Enviar sem editar" (cancelar já deixa como está)
-export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count = '', reedit = false } = {}) {
+// initial: os ajustes da última edição (file é o original): o editor reabre como estava.
+// O File devolvido leva .editState, para guardar e reabrir depois.
+export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count = '', reedit = false, initial = null } = {}) {
   if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
   let loaded;
   try { loaded = await loadImage(file); } catch { return file; } // o navegador não abre: envia como veio
@@ -103,8 +105,20 @@ export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count
   const canvas = $('[data-canvas]'), stage = $('[data-stage]'), frame = $('[data-frame]');
   const ctx = canvas.getContext('2d');
   const zoomInput = $('[data-zoom]');
-  const start = Math.max(0, RATIOS.findIndex(([, r]) => Math.abs(r - ratio) < 0.01));
+  const ratioIndex = (r) => RATIOS.findIndex(([, v]) => Math.abs(v - r) < 0.01);
+  const start = Math.max(0, ratioIndex(ratio)); // "Desfazer tudo" volta para cá
   const st = { ratio: start, rot: 0, flip: 1, zoom: 1, x: 0, y: 0, adj: { brightness: 0, contrast: 0, saturate: 0 } };
+  // posição salva em fração da moldura: só vira pixels quando o palco tem tamanho
+  let pending = null;
+  if (initial) {
+    const n = (v, d, min, max) => (Number.isFinite(+v) ? Math.min(max, Math.max(min, +v)) : d);
+    st.ratio = Math.max(0, ratioIndex(+initial.ratio || 0));
+    st.rot = n(initial.rot, 0, 0, 3) | 0;
+    st.flip = initial.flip === -1 ? -1 : 1;
+    st.zoom = n(initial.zoom, 1, 1, MAX_ZOOM);
+    ADJUST.forEach(([key]) => { st.adj[key] = n(initial.adj?.[key], 0, -100, 100); });
+    pending = { x: n(initial.x, 0, -10, 10), y: n(initial.y, 0, -10, 10) };
+  }
   let box = { fw: 0, fh: 0, sw: 0, sh: 0 }; // moldura e palco, em pixels de tela
 
   // largura/altura da foto depois de girada
@@ -127,6 +141,7 @@ export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count
     let fw = sw - pad * 2, fh = fw / a;
     if (fh > sh - pad * 2) { fh = sh - pad * 2; fw = fh * a; }
     box = { fw, fh, sw, sh };
+    if (pending && fw) { st.x = pending.x * fw; st.y = pending.y * fh; pending = null; }
     Object.assign(frame.style, { width: `${fw}px`, height: `${fh}px` });
     const dpr = Math.min(devicePixelRatio || 1, 2);
     canvas.width = sw * dpr; canvas.height = sh * dpr;
@@ -230,7 +245,14 @@ export async function editPhoto(file, { ratio = 0, title = 'Ajustar foto', count
   try {
     if (choice === 'skip') return file;
     if (choice !== 'ok') return null;
-    return await render(file, img, st, box, scale());
+    const out = await render(file, img, st, box, scale());
+    if (out !== file) {
+      out.editState = {
+        ratio: RATIOS[st.ratio][1], rot: st.rot, flip: st.flip, zoom: +st.zoom.toFixed(4),
+        x: +(st.x / box.fw).toFixed(5), y: +(st.y / box.fh).toFixed(5), adj: { ...st.adj },
+      };
+    }
+    return out;
   } finally {
     URL.revokeObjectURL(url);
   }

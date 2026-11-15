@@ -155,16 +155,30 @@ const uploads = {
 const sessionUploads = new Set();
 const STORAGE_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/`;
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Foto editada no painel: o endereço leva, depois do "#ed=", o original e os
+// ajustes da edição (o navegador ignora o que vem depois do #). Assim o editor
+// reabre o original como estava e dá para desfazer o que foi feito.
+const b64url = (str) => btoa(String.fromCharCode(...new TextEncoder().encode(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64url = (str) => new TextDecoder().decode(Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
+const withEdit = (url, ed) => `${url.split('#')[0]}#ed=${b64url(JSON.stringify(ed))}`;
+function readEdit(url = '') {
+  const [base, hash = ''] = String(url).split('#');
+  const m = /(?:^|&)ed=([\w-]+)/.exec(hash);
+  try { return { base, ed: m ? JSON.parse(unb64url(m[1])) : null }; } catch { return { base, ed: null }; }
+}
+// arquivos de verdade por trás de um endereço: a foto e, se editada, o original
+const filesOf = (url) => { const { base, ed } = readEdit(url); return typeof ed?.o === 'string' ? [base, ed.o.split('#')[0]] : [base]; };
 // todas as URLs do nosso storage citadas em DATA (projetos, trajetória, configurações…)
-const storageUrls = () => new Set(DEMO_MODE ? [] : JSON.stringify(DATA).match(new RegExp(`${escRe(STORAGE_PREFIX)}[^"]+`, 'g')) || []);
+const storageUrls = () => new Set(DEMO_MODE ? [] : (JSON.stringify(DATA).match(new RegExp(`${escRe(STORAGE_PREFIX)}[^"]+`, 'g')) || []).flatMap(filesOf));
 // Apaga do storage os arquivos que não são mais usados por nada. Falha aqui não
 // atrapalha quem está editando: o arquivo só fica sobrando.
 async function cleanupFiles(urls) {
   if (DEMO_MODE) return;
   const used = storageUrls();
-  const paths = [...new Set(urls)].filter((u) => u?.startsWith(STORAGE_PREFIX) && !used.has(u))
+  const files = [...new Set(urls.filter(Boolean).flatMap(filesOf))];
+  const paths = files.filter((u) => u.startsWith(STORAGE_PREFIX) && !used.has(u))
     .map((u) => decodeURIComponent(u.slice(STORAGE_PREFIX.length)));
-  urls.forEach((u) => sessionUploads.delete(u));
+  files.forEach((u) => sessionUploads.delete(u));
   if (!paths.length) return;
   const { error } = await sb.storage.from(STORAGE_BUCKET).remove(paths);
   if (error) console.warn('Não foi possível apagar arquivos antigos do storage:', error.message);
@@ -544,16 +558,30 @@ async function editBeforeUpload(file, opts) {
   const { editPhoto } = await import('./photo-editor.js');
   return editPhoto(file, opts);
 }
-// Editar de novo uma imagem que já foi enviada: baixa, abre o editor e envia a
+// Envia a foto; se ela passou pelo editor, envia também o original e devolve o
+// endereço com os ajustes (ver withEdit), para poder reabrir a edição depois.
+async function uploadPhoto(picked, file, folder, accept) {
+  const url = await db.upload(file, folder, accept);
+  if (!file.editState || file === picked) return url;
+  try {
+    return withEdit(url, { o: await db.upload(picked, folder, accept), s: file.editState });
+  } catch {
+    return url; // sem o original: a foto fica só com a versão editada
+  }
+}
+// Editar de novo uma imagem que já foi enviada: abre o ORIGINAL com os ajustes da
+// última edição (ou a própria imagem, se ela nunca foi editada aqui) e envia a
 // versão nova. Devolve o novo endereço, ou null se cancelou/não deu para editar.
 const canReedit = (url, kind) => !!url && kind !== 'video' && mediaKind({ url }) === 'image' && !/\.(gif|svg|pdf)(\?|$)/i.test(url);
 async function reeditImage(url, folder, opts = {}) {
+  const { base, ed } = readEdit(url);
+  const original = typeof ed?.o === 'string' ? ed.o : base;
   let file;
   try {
-    const res = await fetch(url);
+    const res = await fetch(original);
     if (!res.ok) throw new Error(res.status);
     const blob = await res.blob();
-    const name = decodeURIComponent(new URL(url, location.href).pathname.split('/').pop() || '') || 'foto.jpg';
+    const name = decodeURIComponent(new URL(original, location.href).pathname.split('/').pop() || '') || 'foto.jpg';
     file = new File([blob], name, { type: blob.type });
   } catch {
     toast('Não deu para abrir essa imagem para editar.', 'error');
@@ -563,12 +591,12 @@ async function reeditImage(url, folder, opts = {}) {
     toast('Esse tipo de imagem não pode ser editado.', 'error');
     return null;
   }
-  const edited = await editBeforeUpload(file, { ...opts, reedit: true });
+  const edited = await editBeforeUpload(file, { ...opts, reedit: true, initial: ed?.s });
   if (!edited || edited === file) return null;
   try {
     const next = await db.upload(edited, folder, 'image/*');
     toast('Imagem atualizada');
-    return next;
+    return edited.editState ? withEdit(next, { o: original, s: edited.editState }) : next;
   } catch (err) {
     toast(errorMessage(err), 'error');
     return null;
@@ -584,14 +612,14 @@ async function editUploaded(box) {
     box.classList.remove('is-busy');
   }
 }
-async function uploadInto(box, file) {
-  file = await editBeforeUpload(file, { ratio: +box.dataset.ratio || 0, title: `Ajustar: ${box.dataset.label || 'foto'}` });
+async function uploadInto(box, picked) {
+  const file = await editBeforeUpload(picked, { ratio: +box.dataset.ratio || 0, title: `Ajustar: ${box.dataset.label || 'foto'}` });
   if (!file) return;
   const title = $('[data-upload-title]', box);
   box.classList.add('is-busy');
   title.textContent = 'Enviando…';
   try {
-    setUpload(box, await db.upload(file, box.dataset.folder, box.dataset.upload), fileKind(file));
+    setUpload(box, await uploadPhoto(picked, file, box.dataset.folder, box.dataset.upload), fileKind(file));
     toast('Arquivo enviado');
   } catch (err) {
     title.textContent = 'Clique para enviar';
@@ -1781,7 +1809,7 @@ function editProject(p) {
       if (!file) continue;
       title.textContent = `Enviando ${k + 1} de ${files.length}…`;
       try {
-        const url = await db.upload(file, 'projetos', 'image/*,video/*');
+        const url = await uploadPhoto(picked, file, 'projetos', 'image/*,video/*');
         media.push({ type: file.type.startsWith('video') ? 'video' : 'image', url, caption: '' });
         drawerDirty = true;
         drawMedia();
