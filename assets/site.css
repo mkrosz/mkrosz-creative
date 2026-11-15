@@ -617,10 +617,11 @@ body:not(.is-ready) .dock { transform: translate(-50%, 140%); opacity: 0; }
 @media (max-width: 860px) { .footer__bottom { grid-template-columns: 1fr; justify-items: start; } .footer__nav { justify-content: flex-start; } }
 
 /* ---------- MODAL DO PROJETO ---------- */
-.modal .modal__backdrop { opacity: 0; transition: opacity var(--dur) var(--ease); }
-.modal .modal__panel { opacity: 0; transform: translateY(40px) scale(.97); transition: opacity var(--dur) var(--ease), transform .5s var(--ease); }
-.modal.is-open .modal__backdrop { opacity: 1; }
-.modal.is-open .modal__panel { opacity: 1; transform: none; }
+/* Abrir e fechar rápidos: abre em ~0,25s e fecha em ~0,15s (o hide do JS acompanha: MODAL_CLOSE_MS) */
+.modal .modal__backdrop { opacity: 0; transition: opacity .15s ease-out; }
+.modal .modal__panel { opacity: 0; transform: translateY(12px) scale(.985); transition: opacity .15s ease-out, transform .15s ease-out; }
+.modal.is-open .modal__backdrop { opacity: 1; transition-duration: .2s; }
+.modal.is-open .modal__panel { opacity: 1; transform: none; transition: opacity .2s var(--ease), transform .25s var(--ease); }
 /* O modal sempre cabe na tela: nada rola, nada de barra de rolagem.
    Desktop: mídia à esquerda + informações à direita. Celular: tela cheia, mídia em cima. */
 .pm {

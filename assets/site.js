@@ -946,6 +946,7 @@ function openProject(p, { push = true } = {}) {
   if (push) history.replaceState(null, '', `#projeto/${p.slug || p.id}`);
 }
 
+const MODAL_CLOSE_MS = 160; // igual à transição de fechar do .modal no site.css
 function closeModal(el = modal) {
   if (el === modal) {
     stopAutoplay();
@@ -959,7 +960,7 @@ function closeModal(el = modal) {
   el.hideTimer = setTimeout(() => {
     el.hidden = true;
     if (el === modal) slot('pm-viewer').innerHTML = ''; // para vídeos
-  }, reduced ? 0 : 320);
+  }, reduced ? 0 : MODAL_CLOSE_MS);
   if (el === modal && location.hash.startsWith('#projeto/')) history.replaceState(null, '', `${location.pathname}${location.search}`);
   lastFocus?.focus?.();
 }
