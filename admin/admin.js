@@ -1249,14 +1249,14 @@ function renderCollection(sec) {
       const kinds = kindsOf(item);
       const hay = esc(normalizeText(`${r.title} ${r.meta} ${KIND_LABEL[item.kind] || ''} ${kinds.map((k) => sec.groups?.[k] || '').join(' ')}`));
       const tools = `<div class="row__tools">${reorderButtons(i, list.length)}${editButton(item.id)}${deleteButton(item.id)}</div>`;
-      if (sec.card) return `<div class="row tagcard" data-hay="${hay}" data-kind="${esc(kinds.join(' '))}">${sec.card(item)}${tools}</div>`;
+      if (sec.card) return `<div class="row tagcard" data-i="${i}" data-hay="${hay}" data-kind="${esc(kinds.join(' '))}">${sec.card(item)}${tools}</div>`;
       // trajetória em cards (como os blocos de projetos do site, mais simples)
-      if (sec.groups) return `<div class="row tile tile--text" data-hay="${hay}" data-kind="${esc(item.kind || '')}">
+      if (sec.groups) return `<div class="row tile tile--text" data-i="${i}" data-hay="${hay}" data-kind="${esc(item.kind || '')}">
         <div class="tile__top">${r.lead}${tools}</div>
         <p class="tile__title tile__title--2" title="${esc(r.title)}">${esc(r.title)}</p>
         <p class="tile__meta">${esc(r.meta)}</p>
       </div>`;
-      return `<div class="row" data-hay="${hay}" data-kind="${esc(item.kind || '')}">
+      return `<div class="row" data-i="${i}" data-hay="${hay}" data-kind="${esc(item.kind || '')}">
         <span class="row__lead">${r.lead}</span>
         <div class="row__text"><p class="row__title"><span class="row__name">${esc(r.title)}</span></p><p class="row__meta">${esc(r.meta)}</p></div>
         ${tools}
@@ -1286,12 +1286,11 @@ function renderCollection(sec) {
   }));
   refresh();
 
+  sortableList($('#list-rows'), sec.table, list);
   content.onclick = (e) => {
     const ed = e.target.closest('[data-edit]');
     if (ed) editItem(sec, list.find((x) => x.id === ed.dataset.edit));
     if (e.target.closest('[data-new]')) editItem(sec, { ...sec.defaults });
-    const mv = e.target.closest('[data-move]');
-    if (mv) move(sec.table, list, Number(mv.dataset.index), Number(mv.dataset.move));
     const del = e.target.closest('[data-delete]');
     if (del) removeRow(sec.table, list.find((x) => x.id === del.dataset.delete), sec.singular);
   };
@@ -1323,17 +1322,18 @@ async function removeRow(table, row, kind) {
   }
 }
 
-const reorderButtons = (i, n) => `
-  <button class="btn btn--icon btn--sm btn--ghost" type="button" data-move="-1" data-index="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Mover para cima">${ICON.up}</button>
-  <button class="btn btn--icon btn--sm btn--ghost" type="button" data-move="1" data-index="${i}" ${i === n - 1 ? 'disabled' : ''} aria-label="Mover para baixo">${ICON.down}</button>`;
+// "Editar posições": a alça para arrastar (ou mover com as setas do teclado)
+const reorderButtons = (i, n) => `<button class="btn btn--icon btn--sm btn--ghost row__grip" type="button" data-drag aria-label="Mudar a posição (${i + 1} de ${n}): arraste ou use as setas" title="Segure e arraste para mudar a posição">${ICON.grip}</button>`;
 
-async function move(table, list, i, dir) {
-  const j = i + dir;
-  if (j < 0 || j >= list.length) return;
-  const reordered = [...list];
-  [reordered[i], reordered[j]] = [reordered[j], reordered[i]];
-  await saveOrder(table, reordered);
-}
+// liga o arrastar numa lista do painel: só vale no modo "Editar posições"
+const sortableList = (el, table, list) => el && makeSortable(el, {
+  active: () => sorting,
+  whole: '.row',
+  // não mudou ou não deu para salvar: redesenha na ordem que está no banco
+  apply: async (order) => {
+    if (!order.some((i, k) => i !== k) || !(await saveOrder(table, order.map((i) => list[i])))) renderSection();
+  },
+});
 
 async function saveOrder(table, reordered) {
   try {
@@ -1419,7 +1419,7 @@ function renderProjects() {
         const on = p.id === DATA.settings.featured_project_id;
         const hay = normalizeText([p.title, p.short_description, ...p.tag_ids.map(tagName)].join(' '));
         return `
-      <div class="row tile${on ? ' is-featured' : ''}${p.published === false ? ' is-draft' : ''}" data-hay="${esc(hay)}" data-status="${projectState(p)}">
+      <div class="row tile${on ? ' is-featured' : ''}${p.published === false ? ' is-draft' : ''}" data-i="${i}" data-hay="${esc(hay)}" data-status="${projectState(p)}">
         <div class="tile__frame">${thumb(p)}
           <span class="tile__badges">${STATE_BADGE[projectState(p)]}</span>
           <div class="row__tools">
@@ -1458,12 +1458,11 @@ function renderProjects() {
   }));
   if (search) { search.addEventListener('input', () => { listPages.projetos = 0; filter(); }); filter(); }
 
+  sortableList($('#project-rows'), 'projects', list);
   content.onclick = async (e) => {
     const ed = e.target.closest('[data-edit]');
     if (ed) editProject(list.find((p) => p.id === ed.dataset.edit));
     if (e.target.closest('[data-new]')) $('#new-project').click();
-    const mv = e.target.closest('[data-move]');
-    if (mv) move('projects', list, Number(mv.dataset.index), Number(mv.dataset.move));
     const del = e.target.closest('[data-delete]');
     if (del) removeRow('projects', list.find((p) => p.id === del.dataset.delete), 'projeto');
     // Estrela: escolhe o projeto destaque do site (clicar de novo tira)
@@ -1496,20 +1495,18 @@ const PROJECT_LOOK_FIELDS = [
 ];
 const PROJECT_FIELDS = [...PROJECT_INFO_FIELDS, ...PROJECT_LOOK_FIELDS];
 
-// Mudar a posição arrastando (mídias e links do projeto). Segura pela alça
-// [data-drag] (ou, com o mouse, pela própria miniatura) e solta no lugar.
-// Os outros itens abrem espaço com uma animação. Na alça, as setas também movem.
-function makeSortable(el, arr, draw) {
-  const items = () => [...el.children].filter((n) => n.dataset.i !== undefined);
-  const scroller = el.closest('.drawer__body');
+// Mudar a posição arrastando: mídias e links do projeto e as listas do painel
+// (no modo "Editar posições"). Segura pela alça [data-drag] (ou, com o mouse,
+// pelo item inteiro em `whole`) e solta no lugar. Os outros itens abrem espaço
+// com uma animação. Na alça, as setas do teclado também movem.
+//   apply(order): recebe os índices antigos na ordem nova (pode ser async)
+//   active(): só arrasta quando devolve true (ex.: modo "Editar posições")
+function makeSortable(el, { apply, active = () => true, whole = '' }) {
+  const items = () => [...el.children].filter((n) => n.dataset.i !== undefined && !n.hidden);
+  const scroller = el.closest('.drawer__body'); // sem gaveta: rola a página
   let drag = null;
 
-  const commit = () => {
-    const order = items().map((n) => Number(n.dataset.i));
-    if (order.some((i, k) => i !== k)) drawerDirty = true;
-    arr.splice(0, arr.length, ...order.map((i) => arr[i]));
-    draw();
-  };
+  const commit = () => apply(items().map((n) => Number(n.dataset.i)));
 
   // anima quem mudou de lugar (FLIP)
   const shift = (target, before) => {
@@ -1519,7 +1516,7 @@ function makeSortable(el, arr, draw) {
     others.forEach((n) => {
       const a = first.get(n), b = n.getBoundingClientRect();
       const dx = a.left - b.left, dy = a.top - b.top;
-      if (dx || dy) n.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+      if (dx || dy) n.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { id: 'sort-shift', duration: 220, easing: 'cubic-bezier(.22, 1, .36, 1)' });
     });
   };
 
@@ -1530,15 +1527,15 @@ function makeSortable(el, arr, draw) {
   };
   const step = () => {
     const { item, x, y } = drag;
-    // perto das bordas da gaveta, rola sozinho
-    if (scroller) {
-      const r = scroller.getBoundingClientRect();
-      if (y < r.top + 48) scroller.scrollTop -= 10;
-      else if (y > r.bottom - 48) scroller.scrollTop += 10;
-    }
-    // em cima de outro item (que não esteja se mexendo): troca de lugar
+    // perto das bordas (da gaveta ou da janela), rola sozinho
+    const area = scroller ? scroller.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+    const sc = scroller || document.scrollingElement;
+    if (y < area.top + 48) sc.scrollTop -= 10;
+    else if (y > area.bottom - 48) sc.scrollTop += 10;
+    // em cima de outro item (que não esteja abrindo espaço): troca de lugar.
+    // Só conta a animação de troca; efeitos de hover do próprio cartão não.
     const target = items().find((n) => {
-      if (n === item || n.getAnimations().length) return false;
+      if (n === item || n.getAnimations().some((a) => a.id === 'sort-shift')) return false;
       const r = n.getBoundingClientRect();
       return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
     });
@@ -1583,10 +1580,10 @@ function makeSortable(el, arr, draw) {
   };
 
   el.addEventListener('pointerdown', (e) => {
-    if (drag || e.button !== 0 || items().length < 2) return;
-    // alça em qualquer aparelho; com o mouse, o cartão da mídia inteiro (menos legenda e botões)
+    if (drag || e.button !== 0 || !active() || items().length < 2) return;
+    // alça em qualquer aparelho; com o mouse, o item inteiro (menos campos e botões)
     const handle = e.target.closest('[data-drag]')
-      || (e.pointerType === 'mouse' && !e.target.closest('input, select, textarea, button, a') && e.target.closest('.repeater--grid [data-i]'));
+      || (whole && e.pointerType === 'mouse' && !e.target.closest('input, select, textarea, button, a') && e.target.closest(whole));
     if (!handle) return;
     e.preventDefault(); // não seleciona texto nem arrasta a imagem do navegador
     drag = { item: handle.closest('[data-i]'), id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, last: null };
@@ -1598,17 +1595,19 @@ function makeSortable(el, arr, draw) {
   el.addEventListener('dragstart', (e) => { if (!e.target.closest?.('input, textarea')) e.preventDefault(); });
 
   // teclado: setas na alça movem uma posição
-  el.addEventListener('keydown', (e) => {
+  el.addEventListener('keydown', async (e) => {
     const handle = e.target.closest('[data-drag]');
     const step = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 }[e.key];
-    if (!handle || !step) return;
+    if (!handle || !step || !active()) return;
     e.preventDefault();
-    const i = Number(handle.closest('[data-i]').dataset.i), j = i + step;
-    if (j < 0 || j >= arr.length) return;
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-    drawerDirty = true;
-    draw();
-    $(`[data-i="${j}"] [data-drag]`, el)?.focus();
+    const order = items().map((n) => Number(n.dataset.i));
+    const k = order.indexOf(Number(handle.closest('[data-i]').dataset.i)), j = k + step;
+    if (j < 0 || j >= order.length) return;
+    [order[k], order[j]] = [order[j], order[k]];
+    await apply(order);
+    // a lista foi redesenhada: o foco volta para a alça do item, na posição nova
+    const box = el.isConnected ? el : $(`#${el.id}`);
+    $(`[data-i="${j}"] [data-drag]`, box)?.focus();
   });
 }
 
@@ -1773,7 +1772,14 @@ function editProject(p) {
       item.classList.remove('is-busy');
       if (url) { arr[i].url = url; drawerDirty = true; draw(); }
     });
-    makeSortable(el, arr, draw);
+    makeSortable(el, {
+      whole: '.repeater--grid [data-i]',
+      apply: (order) => {
+        if (order.some((i, k) => i !== k)) drawerDirty = true;
+        arr.splice(0, arr.length, ...order.map((i) => arr[i]));
+        draw();
+      },
+    });
   };
   // Contadores nas abas
   const baseMedia = drawMedia, baseLinks = drawLinks;

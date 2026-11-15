@@ -528,11 +528,14 @@ select.input { appearance: none; padding-right: 36px; background-image: url("dat
   box-shadow: 0 14px 34px -18px rgb(0 0 0 / .55); pointer-events: none;
 }
 
-/* ---------- Ordem: as setas só aparecem em "Editar posições" ---------- */
-.content:not(.is-sorting) .row [data-move] { display: none; }
-/* ordenando: só as setas na linha, sem editar/excluir/estrela */
-.content.is-sorting .row__tools > :not([data-move]) { display: none; }
-.content.is-sorting .row { border-style: dashed; }
+/* ---------- Ordem: a alça de arrastar só aparece em "Editar posições" ---------- */
+.content:not(.is-sorting) .row [data-drag] { display: none; }
+/* ordenando: só a alça na linha, sem editar/excluir/estrela; segura o item e arrasta */
+.content.is-sorting .row__tools > :not([data-drag]) { display: none; }
+.content.is-sorting .row { position: relative; border-style: dashed; }
+@media (pointer: fine) { .content.is-sorting .row { cursor: grab; } }
+.content.is-sorting .row img { -webkit-user-drag: none; user-select: none; }
+.row.is-dragging { z-index: 5; cursor: grabbing; border-style: solid; border-color: var(--accent); box-shadow: 0 22px 44px -14px rgb(0 0 0 / .55), 0 0 0 1px var(--accent); }
 .pane-head .btn--ghost { margin-left: auto; }
 .pane-head--end { justify-content: flex-end; margin-bottom: -8px; }
 .row__del:hover { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 50%, transparent); }
@@ -588,7 +591,7 @@ select.input { appearance: none; padding-right: 36px; background-image: url("dat
 .media-add__drop small { margin-left: -4px; }
 
 /* Mídias e links do projeto: segurar e arrastar para mudar a posição (ver makeSortable) */
-.rep-item__grip { cursor: grab; touch-action: none; }
+[data-drag] { cursor: grab; touch-action: none; }
 @media (pointer: fine) { .repeater--grid .rep-item { cursor: grab; } .repeater--grid .rep-item .input { cursor: text; } }
 .repeater--grid .rep-item__thumb :is(img, video) { -webkit-user-drag: none; user-select: none; }
 .rep-item.is-dragging {
