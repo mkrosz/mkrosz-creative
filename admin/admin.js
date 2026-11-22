@@ -214,6 +214,8 @@ function errorMessage(err) {
   const m = err?.message || String(err);
   if (/row-level security|42501|permission/i.test(m)) return 'Sem permissão para salvar. Confirme se seu usuário está na tabela admins.';
   if (/duplicate key.*slug/i.test(m)) return 'Já existe um item com esse slug. Escolha outro.';
+  // schema.sql novo ainda não instalado no Supabase (coluna nova que o painel já usa)
+  if (/Could not find the '(\w+)' column/i.test(m)) return `O banco ainda não tem o campo "${m.match(/'(\w+)' column/i)[1]}". Rode npm run setup na pasta do projeto para atualizar o Supabase e tente de novo.`;
   if (/education_dates_chk/.test(m)) return 'A data de conclusão está antes da data de início.';
   if (/_color_chk|_colors_chk/.test(m)) return 'Use uma cor em hexadecimal (ex.: #2f7bff).';
   if (/projects_state_chk/.test(m)) return 'Um projeto não pode estar publicado e offline ao mesmo tempo.';
@@ -286,7 +288,7 @@ async function requestCloseDrawer() {
 }
 
 // Qualquer edição dentro da gaveta marca alterações não salvas
-$('#drawer-form').addEventListener('input', (e) => { if (!e.target.closest('.tag-combo')) drawerDirty = true; });
+$('#drawer-form').addEventListener('input', (e) => { if (!e.target.closest('.tag-combo, [data-proj-search]')) drawerDirty = true; });
 $('#drawer-form').addEventListener('change', () => { drawerDirty = true; });
 let tagOutside = null; // fecha as listas de tags ao clicar fora (definido em editProject)
 drawer.addEventListener('click', (e) => {
@@ -354,7 +356,8 @@ const tip = (text) => text ? ` <span class="tip" tabindex="0" role="img" aria-la
 function fieldHtml(fd, value) {
   const id = `f-${fd.key}`;
   const cls = `field${fd.full ? ' full' : ''}`;
-  const label = `${fd.label}${tip(fd.help)}`;
+  // data-lbl: a Trajetória troca o rótulo conforme o tipo escolhido
+  const label = `<span data-lbl>${fd.label}${tip(fd.help)}</span>`;
   const req = fd.required ? ' required' : '';
   const v = value ?? '';
   switch (fd.type) {
@@ -389,6 +392,8 @@ function fieldHtml(fd, value) {
           <button class="btn btn--icon btn--sm btn--ghost upload__clear" type="button" data-upload-clear aria-label="${fd.label}: remover arquivo" title="Remover arquivo">${ICON.trash}</button>
           <input type="hidden" name="${fd.key}" value="${esc(v)}">
         </div></div>`;
+    case 'projects':
+      return `<div class="${cls}"><span class="field-label">${label}</span>${projectPicker(value || [])}</div>`;
     case 'list':
       return `<div class="${cls} list-input" data-list="${fd.key}"><span class="field-label">${label}</span>
         <input class="input" type="text" placeholder="Digite e pressione Enter para adicionar" data-list-add>
@@ -487,6 +492,10 @@ const fileKind = (file) => (file.type === 'application/pdf' ? 'pdf' : file.type.
 function readFields(form, fields) {
   const out = {};
   fields.forEach((fd) => {
+    if (fd.type === 'projects') {
+      out[fd.key] = [...form.querySelectorAll(`input[name="${fd.key}"]:checked`)].map((i) => i.value);
+      return;
+    }
     const el = form.elements[fd.key];
     if (!el) return;
     if (fd.type === 'bool') out[fd.key] = el.checked;
@@ -940,27 +949,48 @@ const SECTIONS = [
     ],
   },
   {
-    id: 'trajetoria', label: 'Trajetória', desc: 'Formação, onde você trabalha e cursos com certificado.', kind: 'collection', table: 'education', singular: 'item',
+    id: 'trajetoria', label: 'Trajetória', desc: 'Onde você trabalha e trabalhou, sua formação e cursos com certificado. Cada tipo pede só o que faz sentido para ele.', kind: 'collection', table: 'education', singular: 'item',
     fields: [
       f('kind', 'Tipo', 'select', { required: true, options: () => Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label })) }),
-      f('institution', 'Instituição / empresa', 'text', { required: true }),
-      f('title', 'Curso / cargo', 'text', { required: true, full: true }),
+      f('institution', { trabalho: 'Empresa', curso: 'Instituição', formacao: 'Instituição' }, 'text', { required: true }),
+      f('title', { trabalho: 'Cargo', curso: 'Nome do curso', formacao: 'Curso / formação' }, 'text', { required: true, full: true }),
       f('start_date', 'Início', 'date'),
-      f('end_date', 'Conclusão', 'date'),
-      f('is_current', 'Em andamento / trabalho atual', 'bool', { full: true }),
-      f('description', 'Descrição curta', 'textarea', { full: true, rows: 3 }),
-      f('certificate_url', 'Certificado (imagem ou PDF)', 'image', { full: true, accept: 'image/*,application/pdf', folder: 'certificados', ratio: 16 / 9, help: 'Use uma imagem deitada em 16:9 (ex.: 1600×900). No site ela aparece numa moldura 16:9.' }),
-      f('applied_text', 'O que apliquei no curso', 'textarea', { full: true, rows: 4, help: 'Aparece ao lado do certificado quando o visitante clica em “Ver certificado”.' }),
+      f('end_date', { trabalho: 'Saída', curso: 'Conclusão', formacao: 'Conclusão' }, 'date'),
+      f('is_current', { trabalho: 'É meu emprego atual', formacao: 'Estou cursando (em andamento)' }, 'bool', { full: true }),
+      f('description', { trabalho: 'O que o cargo exige de conhecimento', curso: 'O que apliquei no curso', formacao: 'O que apliquei na formação' }, 'textarea', {
+        full: true, rows: 4,
+        help: {
+          trabalho: 'Conhecimentos, ferramentas e responsabilidades do cargo.',
+          curso: 'Aparece na linha do tempo e ao lado do certificado quando o visitante clica em “Ver certificado”.',
+          formacao: 'Aparece na linha do tempo e ao lado do certificado quando o visitante clica em “Ver certificado”.',
+        },
+      }),
+      f('project_ids', 'Projetos feitos neste emprego', 'projects', { full: true, help: 'Marque os projetos da seção Projetos que você fez nesse emprego. No site, só os publicados aparecem.' }),
+      f('certificate_url', { curso: 'Certificado (imagem ou PDF)', formacao: 'Diploma / certificado (imagem ou PDF)' }, 'image', { full: true, accept: 'image/*,application/pdf', folder: 'certificados', ratio: 16 / 9, help: 'Use uma imagem deitada em 16:9 (ex.: 1600×900). No site ela aparece numa moldura 16:9.' }),
       f('credential_url', 'Link de validação do certificado', 'url', { full: true }),
     ],
+    // os campos de cada tipo (o "Tipo" vale para todos); o resto fica escondido e é limpo ao salvar
+    kindFields: {
+      trabalho: ['institution', 'title', 'start_date', 'end_date', 'is_current', 'description', 'project_ids'],
+      curso: ['institution', 'title', 'start_date', 'end_date', 'description', 'certificate_url', 'credential_url'],
+      formacao: ['institution', 'title', 'start_date', 'end_date', 'is_current', 'description', 'certificate_url'],
+    },
     defaults: { kind: 'curso' },
     groups: { trabalho: 'Trabalho', formacao: 'Formação', curso: 'Cursos' },
     dateKey: 'start_date',
-    row: (e) => ({
-      lead: `<span class="badge">${KIND_LABEL[e.kind] || e.kind}</span>`,
-      title: e.title,
-      meta: [e.institution, [formatDate(e.start_date, { month: 'short', year: 'numeric' }), e.is_current ? 'Atual' : formatDate(e.end_date, { month: 'short', year: 'numeric' })].filter(Boolean).join(' — '), e.certificate_url ? 'com certificado' : ''].filter(Boolean).join(' · '),
-    }),
+    row: (e) => {
+      const n = e.kind === 'trabalho' ? (e.project_ids || []).filter((id) => DATA.projects.some((p) => p.id === id)).length : 0;
+      return {
+        lead: `<span class="badge">${KIND_LABEL[e.kind] || e.kind}</span>`,
+        title: e.title,
+        meta: [
+          e.institution,
+          [formatDate(e.start_date, { month: 'short', year: 'numeric' }), e.is_current ? 'Atual' : formatDate(e.end_date, { month: 'short', year: 'numeric' })].filter(Boolean).join(' — '),
+          e.kind !== 'trabalho' && e.certificate_url ? 'com certificado' : '',
+          n ? `${n} projeto${n > 1 ? 's' : ''}` : '',
+        ].filter(Boolean).join(' · '),
+      };
+    },
   },
   {
     id: 'redes', label: 'Redes sociais', desc: 'Links que aparecem na navbar e no rodapé.', kind: 'collection', table: 'social_links', singular: 'rede',
@@ -1355,20 +1385,120 @@ async function saveOrder(table, reordered) {
   }
 }
 
+// Rótulo/dica que muda conforme o tipo (Trajetória): { trabalho: '…', curso: '…' }
+const byKind = (v, kind) => (v && typeof v === 'object' ? v[kind] ?? Object.values(v)[0] : v);
+const fieldFor = (fd, kind) => ({ ...fd, label: byKind(fd.label, kind), help: byKind(fd.help, kind) });
+
+// Projetos para marcar (o que foi feito naquele emprego)
+function projectPicker(selected) {
+  const list = [...DATA.projects].sort(bySort);
+  if (!list.length) return '<p class="proj-pick__empty">Nenhum projeto cadastrado ainda. Adicione em Projetos.</p>';
+  const thumb = (p) => {
+    const src = p.cover_url || p.media?.find((m) => mediaKind(m) === 'image')?.url;
+    return `<span class="proj-pick__thumb">${src ? `<img src="${esc(safeUrl(src))}" alt="" loading="lazy" decoding="async">` : ''}</span>`;
+  };
+  return `<div class="proj-pick" data-proj-pick>
+    <div class="proj-pick__chosen" data-proj-chosen></div>
+    <div class="proj-pick__search">${ICON.search}<input class="input" type="search" placeholder="Pesquisar entre ${list.length} projeto${list.length > 1 ? 's' : ''}" aria-label="Pesquisar projetos" data-proj-search></div>
+    <div class="proj-pick__list" role="group" aria-label="Projetos">${list.map((p) => `
+      <label class="proj-pick__item" data-hay="${esc(normalizeText(p.title || ''))}">
+        <input type="checkbox" name="project_ids" value="${esc(p.id)}" data-title="${esc(p.title)}" ${selected.includes(p.id) ? 'checked' : ''}>
+        ${thumb(p)}<span class="proj-pick__title" title="${esc(p.title)}">${esc(p.title)}</span>${STATE_BADGE[projectState(p)]}
+      </label>`).join('')}
+      <p class="proj-pick__empty" data-proj-none hidden>Nenhum projeto com esse nome.</p>
+    </div>
+  </div>`;
+}
+
+// Selecionados no topo (chips com X) + pesquisa que filtra a lista
+function syncProjectPicker(box) {
+  const checked = $$('input[name="project_ids"]:checked', box);
+  $('[data-proj-chosen]', box).innerHTML = checked.length
+    ? `<span class="proj-pick__count">${checked.length} selecionado${checked.length > 1 ? 's' : ''}</span>${checked.map((i) => `<span class="chip" title="${esc(i.dataset.title)}"><span class="proj-pick__chip-text">${esc(i.dataset.title)}</span><button type="button" data-proj-remove="${esc(i.value)}" aria-label="Tirar ${esc(i.dataset.title)}">${ICON.x}</button></span>`).join('')}`
+    : '<span class="proj-pick__count">Nenhum projeto selecionado</span>';
+}
+function filterProjectPicker(box) {
+  const terms = normalizeText($('[data-proj-search]', box).value).split(/\s+/).filter(Boolean);
+  let shown = 0;
+  $$('.proj-pick__item', box).forEach((row) => {
+    row.hidden = !terms.every((t) => row.dataset.hay.includes(t));
+    if (!row.hidden) shown++;
+  });
+  $('[data-proj-none]', box).hidden = shown > 0;
+}
+document.addEventListener('input', (e) => {
+  const box = e.target.closest('[data-proj-pick]');
+  if (box && e.target.matches('[data-proj-search]')) filterProjectPicker(box);
+});
+document.addEventListener('change', (e) => {
+  const box = e.target.closest('[data-proj-pick]');
+  if (box && e.target.name === 'project_ids') syncProjectPicker(box);
+});
+document.addEventListener('click', (e) => {
+  const rm = e.target.closest('[data-proj-remove]');
+  if (!rm) return;
+  const box = rm.closest('[data-proj-pick]');
+  const input = $$('input[name="project_ids"]', box).find((i) => i.value === rm.dataset.projRemove);
+  if (input) { input.checked = false; input.dispatchEvent(new Event('change', { bubbles: true })); }
+});
+// Enter na pesquisa não envia o formulário
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches?.('[data-proj-search]')) e.preventDefault();
+});
+
+// Mostra só os campos do tipo escolhido e troca os rótulos
+function applyKindFields(sec, form) {
+  const kind = form.elements.kind.value;
+  const keep = sec.kindFields[kind] || [];
+  const current = keep.includes('is_current') && form.elements.is_current.checked;
+  sec.fields.forEach((fd) => {
+    const slot = form.querySelector(`[data-field="${fd.key}"]`);
+    if (!slot || fd.key === 'kind') return;
+    // emprego atual / em andamento: sem data de saída
+    const show = keep.includes(fd.key) && !(fd.key === 'end_date' && current);
+    slot.hidden = !show;
+    slot.querySelectorAll('input, select, textarea').forEach((el) => { if (el.type !== 'hidden') el.disabled = !show; });
+    const lbl = slot.querySelector('[data-lbl]');
+    const v = fieldFor(fd, kind);
+    if (lbl) lbl.innerHTML = `${v.label}${tip(v.help)}`;
+  });
+}
+
 function editItem(sec, item) {
   const isNew = !item.id;
+  const kind0 = item.kind || sec.defaults?.kind;
+  // Trajetória: textos antigos de "o que apliquei" (antes do campo único) entram na descrição
+  const values = sec.kindFields && item.applied_text ? { ...item, description: [item.description, item.applied_text].filter(Boolean).join('\n\n') } : item;
+  const html = (fd) => (sec.kindFields ? `<div class="field-slot" data-field="${fd.key}">${fieldHtml(fieldFor(fd, kind0), values[fd.key])}</div>` : fieldHtml(fd, values[fd.key]));
   openDrawer({
     title: isNew ? `Adicionar ${sec.singular}` : `Editar ${sec.singular}`,
-    body: `<div class="form-grid">${sec.fields.map((fd) => fieldHtml(fd, item[fd.key])).join('')}</div>`,
+    body: `<div class="form-grid">${sec.fields.map(html).join('')}</div>`,
     saveLabel: isNew ? `Adicionar ${sec.singular}` : 'Salvar alterações',
     onSave: async (form) => {
       const row = readFields(form, sec.fields);
+      if (sec.kindFields) {
+        // o que não pertence ao tipo escolhido é limpo (ex.: trocou de Curso para Trabalho)
+        const keep = sec.kindFields[row.kind] || [];
+        sec.fields.forEach((fd) => {
+          if (fd.key === 'kind' || keep.includes(fd.key)) return;
+          row[fd.key] = fd.type === 'bool' ? false : fd.type === 'projects' ? [] : null;
+        });
+        if (row.is_current) row.end_date = null;
+        if ('applied_text' in item) row.applied_text = null; // já foi junto na descrição
+      }
       // a mesma regra do banco (education_dates_chk), avisada antes de enviar
       if (row.start_date && row.end_date && row.end_date < row.start_date) throw fileError('A data de conclusão está antes da data de início.');
       await db.saveRow(sec.table, isNew ? row : { id: item.id, ...row });
       toast(isNew ? 'Item adicionado' : 'Alterações salvas');
     },
   });
+  if (sec.kindFields) {
+    const form = $('#drawer-form');
+    $$('[data-proj-pick]', form).forEach(syncProjectPicker);
+    applyKindFields(sec, form);
+    form.elements.kind.addEventListener('change', () => applyKindFields(sec, form));
+    form.elements.is_current.addEventListener('change', () => applyKindFields(sec, form));
+  }
   // Redes sociais: detecta a plataforma pelo link digitado.
   if (sec.table === 'social_links') {
     const form = $('#drawer-form');

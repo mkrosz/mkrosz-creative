@@ -203,27 +203,42 @@ create table if not exists public.project_links (
 );
 
 -- ---------------------------------------------------------------------
---  ESTUDOS / TRAJETÓRIA (formação, trabalho atual, cursos + certificado)
+--  ESTUDOS / TRAJETÓRIA — cada tipo usa só alguns campos (o painel mostra só esses):
+--    trabalho: empresa, cargo, o que o cargo exige, datas, emprego atual, projetos feitos lá
+--    curso:    curso, instituição, datas, o que apliquei, certificado, link de validação
+--    formacao: curso, instituição, datas, em andamento, o que apliquei, certificado
 -- ---------------------------------------------------------------------
 create table if not exists public.education (
   id              uuid primary key default gen_random_uuid(),
   kind            text not null default 'curso' check (kind in ('formacao', 'trabalho', 'curso')),
   title           text not null,         -- ex.: "Design Gráfico", "UI Designer", "UX Research"
   institution     text not null,         -- ex.: "FATEC", "Empresa X", "Alura"
-  description     text,
+  description     text,                  -- trabalho: o que o cargo exige; curso/formação: o que apliquei
   start_date      date,
   end_date        date,
   is_current      boolean not null default false,
-  applied_text    text,                  -- "o que apliquei no curso" (aparece no modal do certificado)
   certificate_url text,                  -- PDF/imagem do certificado
   credential_url  text,                  -- link de validação
   logo_url        text,
+  project_ids     uuid[] not null default '{}',  -- trabalho: projetos feitos nesse emprego
   sort_order      int not null default 0,
   created_at      timestamptz not null default now()
 );
 
 -- Para quem já rodou uma versão anterior deste arquivo:
-alter table public.education add column if not exists applied_text text;
+alter table public.education add column if not exists project_ids uuid[] not null default '{}';
+-- curso e formação passaram a ter um texto só ("o que apliquei"): o antigo
+-- applied_text entra na descrição antes de a coluna sair (nada se perde)
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'education' and column_name = 'applied_text') then
+    update public.education
+      set description = concat_ws(chr(10) || chr(10), nullif(trim(description), ''), nullif(trim(applied_text), ''))
+      where nullif(trim(applied_text), '') is not null;
+    alter table public.education drop column applied_text;
+  end if;
+end $$;
 -- logo personalizada para o tema escuro (logo_url = tema claro)
 alter table public.settings add column if not exists logo_dark_url text;
 -- offline: projeto que já foi publicado e saiu do ar (published = false).

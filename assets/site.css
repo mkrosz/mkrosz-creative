@@ -552,10 +552,11 @@ body:not(.is-ready) .dock { transform: translate(-50%, 140%); opacity: 0; }
 /* ---------- TRAJETÓRIA ---------- */
 .journey__now { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; margin-bottom: 64px; }
 .job {
-  position: relative; overflow: hidden; display: grid; gap: 6px; padding: 28px;
-  border-radius: var(--radius-lg); background: var(--fg); color: var(--bg);
+  position: relative; display: grid; gap: 6px; padding: 28px;
+  border-radius: var(--radius-lg); color: var(--bg);
+  /* brilho no canto como fundo (sem overflow: hidden, a lista do "+N" pode sair do card) */
+  background: radial-gradient(100px circle at calc(100% - 40px) 40px, color-mix(in oklab, var(--accent) 70%, transparent), transparent) var(--fg);
 }
-.job::after { content: ""; position: absolute; right: -60px; top: -60px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(closest-side, var(--accent), transparent); opacity: .7; }
 .job__badge { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: color-mix(in oklab, var(--bg) 14%, transparent); font-size: 12px; font-weight: 600; }
 .job__badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #30d158; }
 .job__title { margin: 8px 0 0; font-size: 28px; letter-spacing: -.03em; }
@@ -576,7 +577,21 @@ body:not(.is-ready) .dock { transform: translate(-50%, 140%); opacity: 0; }
 .step__title { margin: 4px 0 2px; font-size: 22px; letter-spacing: -.02em; }
 .step__org { margin: 0; font-weight: 600; }
 .step__desc { margin: 8px 0 0; color: var(--muted); }
+.step__desc { white-space: pre-line; }
+/* com certificado: o texto inteiro fica no modal "Ver certificado" */
+.step__desc--clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .step__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+/* "Ver N projetos": leva para Projetos filtrado pelo emprego */
+.work-btn { position: relative; z-index: 1; justify-self: start; gap: 8px; margin-top: 14px; }
+.work-btn svg { transition: transform var(--dur-fast, .2s) var(--ease, ease); }
+.work-btn:hover svg { transform: translate(2px, -2px); }
+/* no card claro do trabalho atual: cores invertidas */
+.job .work-btn { color: var(--bg); border-color: color-mix(in oklab, var(--bg) 28%, transparent); }
+.job .work-btn:hover { background: color-mix(in oklab, var(--bg) 8%, transparent); }
+/* filtro de emprego em Projetos */
+.chip--job { --chip: var(--accent); }
+.chip--job::before { display: none; }
+.chip--job svg { flex: none; opacity: .8; }
 
 /* ---------- FOOTER ---------- */
 /* Contato: fundo do espaço-tempo (canvas) atrás do conteúdo */

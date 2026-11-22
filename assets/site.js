@@ -17,7 +17,8 @@ const finePointer = matchMedia('(pointer: fine)').matches;
 
 let DATA = null;
 let blackHole = null;
-const state = { q: '', tags: new Set(), page: 1 };
+// job: id de um emprego da Trajetória ("Ver N projetos" filtra pelos projetos feitos lá)
+const state = { q: '', tags: new Set(), page: 1, job: null };
 const PER_PAGE = 6; // projetos por página
 
 // Logo personalizada (Identidade no painel): troca o gato pelas imagens enviadas,
@@ -448,6 +449,7 @@ function renderFilters(tags, projects) {
   if (params.get('tag')) state.tags = new Set(params.get('tag').split(',').filter(Boolean));
   if (params.get('q')) state.q = params.get('q');
   if (params.get('p')) state.page = Number(params.get('p')) || 1;
+  if (params.get('emprego')) state.job = params.get('emprego');
   $('#search').value = state.q;
 
   slot('filters').innerHTML = visible
@@ -464,7 +466,8 @@ function renderActiveTags() {
   const count = slot('filter-count');
   count.hidden = !state.tags.size;
   count.textContent = state.tags.size;
-  slot('active-tags').innerHTML = [...state.tags]
+  const job = jobFilter();
+  slot('active-tags').innerHTML = (job ? `<span class="chip chip--job"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>${esc(job.institution)}<button type="button" data-unjob aria-label="Remover filtro ${esc(job.institution)}">✕</button></span>` : '') + [...state.tags]
     .map((slug) => DATA.tags.find((t) => t.slug === slug))
     .filter(Boolean)
     .map((t) => `<span class="chip" style="--chip:${esc(t.color)}">${esc(t.name)}<button type="button" data-untag="${esc(t.slug)}" aria-label="Remover filtro ${esc(t.name)}">✕</button></span>`)
@@ -503,13 +506,20 @@ function cardTags(tags) {
 }
 
 
-// Filtra (busca + tags) e pagina: 6 projetos por página.
+// emprego escolhido em "Ver N projetos" (some se o item sair da Trajetória)
+const jobFilter = () => (state.job ? DATA?.education.find((e) => String(e.id) === String(state.job)) || null : null);
+
+// Filtra (busca + tags + emprego) e pagina: 6 projetos por página.
 // Mudar busca/tags volta para a página 1; trocar de página mantém os filtros.
 function applyFilters(animate = true, { resetPage = true, paging = false } = {}) {
   if (!DATA) return;
   if (resetPage) state.page = 1;
   const q = normalizeText(state.q.trim());
+  const job = jobFilter();
+  if (!job) state.job = null;
+  const jobIds = new Set(job?.project_ids || []);
   const matched = DATA.projects.filter((p) => {
+    if (job && !jobIds.has(p.id)) return false;
     const hay = normalizeText([p.title, p.short_description, ...p.tags.map((t) => t.name)].join(' '));
     const okTag = state.tags.size === 0 || p.tags.some((t) => state.tags.has(t.slug));
     return okTag && (!q || q.split(/\s+/).every((term) => hay.includes(term)));
@@ -526,7 +536,7 @@ function applyFilters(animate = true, { resetPage = true, paging = false } = {})
     renderActiveTags();
     renderPager(pages);
     slot('empty').hidden = matched.length > 0;
-    slot('results').textContent = state.q || state.tags.size ? `${matched.length} de ${DATA.projects.length} projetos` : '';
+    slot('results').textContent = state.q || state.tags.size || job ? `${matched.length} de ${DATA.projects.length} projetos` : '';
   };
   if (paging && !reduced) pageSwap(run);
   // Filtrar rápido pula a transição anterior — isso é esperado, não é erro.
@@ -537,6 +547,7 @@ function applyFilters(animate = true, { resetPage = true, paging = false } = {})
   state.tags.size ? params.set('tag', [...state.tags].join(',')) : params.delete('tag');
   state.q ? params.set('q', state.q) : params.delete('q');
   state.page > 1 ? params.set('p', state.page) : params.delete('p');
+  state.job ? params.set('emprego', state.job) : params.delete('emprego');
   const qs = params.toString();
   history.replaceState(null, '', `${location.pathname}${qs ? `?${qs}` : ''}${location.hash}`);
 }
@@ -650,6 +661,18 @@ const period = (e) => {
   return [start, end].filter(Boolean).join(' — ');
 };
 
+// curso/formação: o texto é "o que apliquei" (textos antigos podem estar em applied_text)
+const eduText = (e) => [e.description, e.applied_text].filter(Boolean).join('\n\n');
+
+// Trabalho: os projetos feitos lá (só os publicados estão em DATA.projects)
+const jobProjectList = (e) => (e?.project_ids || []).map((id) => DATA?.projects.find((p) => p.id === id)).filter(Boolean);
+// Um botão só: leva para Projetos já filtrado por esse emprego
+const jobProjects = (e, cls) => {
+  const n = jobProjectList(e).length;
+  return n ? `<button class="btn btn--sm btn--ghost work-btn ${cls}" type="button" data-job="${esc(e.id)}">Ver ${n} projeto${n > 1 ? 's' : ''}
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></button>` : '';
+};
+
 function renderJourney(items = []) {
   // Em destaque só o trabalho atual; os anteriores vão para a linha do tempo "Experiência"
   const jobs = items.filter((e) => e.kind === 'trabalho');
@@ -662,6 +685,7 @@ function renderJourney(items = []) {
         <h3 class="job__title">${esc(e.title)}</h3>
         <p class="job__org">${esc(e.institution)} · desde ${esc(formatDate(e.start_date, { month: 'short', year: 'numeric' }))}</p>
         ${e.description ? `<p class="job__desc">${esc(e.description)}</p>` : ''}
+        ${jobProjects(e, 'job__projects')}
       </article>`)
     .join('');
   now.hidden = !now.firstElementChild;
@@ -671,10 +695,11 @@ function renderJourney(items = []) {
       <p class="step__date">${esc(period(e))}</p>
       <h4 class="step__title">${esc(e.title)}</h4>
       <p class="step__org">${esc(e.institution)}</p>
-      ${e.description ? `<p class="step__desc">${esc(e.description)}</p>` : ''}
-      ${e.certificate_url || e.credential_url ? `<div class="step__actions">
+      ${eduText(e) ? `<p class="step__desc${e.kind !== 'trabalho' && e.certificate_url ? ' step__desc--clamp' : ''}">${esc(eduText(e))}</p>` : ''}
+      ${e.kind === 'trabalho' ? jobProjects(e, 'step__projects') : ''}
+      ${e.kind !== 'trabalho' && (e.certificate_url || e.credential_url) ? `<div class="step__actions">
         ${e.certificate_url ? `<button class="btn btn--sm btn--ghost" type="button" data-cert="${esc(e.id)}">Ver certificado</button>` : ''}
-        ${e.credential_url ? `<a class="btn btn--sm btn--ghost" href="${esc(safeUrl(e.credential_url))}" target="_blank" rel="noopener">Validar ↗</a>` : ''}
+        ${e.kind === 'curso' && e.credential_url ? `<a class="btn btn--sm btn--ghost" href="${esc(safeUrl(e.credential_url))}" target="_blank" rel="noopener">Validar ↗</a>` : ''}
       </div>` : ''}
     </li>`;
   const line = '<li class="timeline__line" aria-hidden="true"><i></i></li>';
@@ -996,12 +1021,13 @@ function openCert(id) {
   slot('cm-title').textContent = e.title;
   slot('cm-title').classList.toggle('is-long', e.title.length > 60);
   slot('cm-tags').innerHTML = `<span class="chip" style="--chip:var(--accent-2)">${esc(e.institution)}</span>`;
-  const text = e.applied_text || e.description || '';
-  slot('cm-label').hidden = !e.applied_text;
+  const text = eduText(e);
+  slot('cm-label').textContent = e.kind === 'formacao' ? 'O que apliquei na formação' : 'O que apliquei no curso';
+  slot('cm-label').hidden = !text;
   slot('cm-desc').textContent = text;
   slot('cm-desc').scrollTop = 0;
   slot('cm-links').innerHTML = [
-    e.credential_url ? `<a class="pm__link" style="--brand:#1f9d48" href="${esc(safeUrl(e.credential_url))}" target="_blank" rel="noopener" aria-label="Validar certificado">${SQUARE.check}</a>` : '',
+    e.kind === 'curso' && e.credential_url ? `<a class="pm__link" style="--brand:#1f9d48" href="${esc(safeUrl(e.credential_url))}" target="_blank" rel="noopener" aria-label="Validar certificado">${SQUARE.check}</a>` : '',
     `<a class="pm__link" style="--brand:var(--accent)" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Abrir arquivo">${SQUARE.open}</a>`,
   ].join('');
   clearTimeout(cm.hideTimer);
@@ -1084,9 +1110,11 @@ function bindStaticUI() {
   slot('active-tags').addEventListener('click', (e) => {
     const b = e.target.closest('[data-untag]');
     if (b) { state.tags.delete(b.dataset.untag); applyFilters(); }
+    if (e.target.closest('[data-unjob]')) { state.job = null; applyFilters(); }
   });
   $('#clear-filters').addEventListener('click', () => {
     state.q = '';
+    state.job = null;
     state.tags.clear();
     $('#search').value = '';
     applyFilters();
@@ -1100,6 +1128,16 @@ function bindStaticUI() {
   document.addEventListener('click', (e) => {
     const cert = e.target.closest('[data-cert]');
     if (cert) openCert(cert.dataset.cert);
+    // "Ver N projetos" de um emprego: vai para Projetos filtrado por ele
+    const jobBtn = e.target.closest('[data-job]');
+    if (jobBtn) {
+      state.job = jobBtn.dataset.job;
+      state.q = '';
+      state.tags.clear();
+      $('#search').value = '';
+      applyFilters(false);
+      $('#projetos').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    }
   });
 
   // Modal: fechar, navegar, miniaturas, teclado

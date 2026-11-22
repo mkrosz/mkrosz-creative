@@ -217,7 +217,7 @@ Dentro vêm o `banco.sql` (os dados do portfólio: textos, projetos, tags, traje
 | Projetos | Nome, data, descrição curta, capa, cor, **tags** (busque uma que já existe ou crie uma nova ali mesmo), **várias imagens e vídeos** (upload ou link do YouTube/Vimeo), **links de publicação** (Behance, LinkedIn, Instagram, site… cada um vira um botão com o ícone da plataforma). Cada projeto pode estar **Publicado**, **Offline** (já foi publicado e saiu do ar) ou em **Rascunho**. A **estrela** escolhe o projeto destaque, que usa o próprio título e descrição do projeto |
 | Tags | Todas as tags em cards: renomear, trocar a cor, excluir. A busca e o filtro mostram em quais projetos (online, offline, rascunho) cada tag é usada, e as que não são usadas |
 | Sobre mim | Título, texto, foto e habilidades |
-| Trajetória | Trabalho, formação e cursos, com datas, certificado (imagem/PDF) e link de validação |
+| Trajetória | Cada tipo pede só o que é dele. **Trabalho**: empresa, cargo, o que o cargo exige, datas, se é o emprego atual e os projetos feitos lá (no site, o botão “Ver N projetos” leva para Projetos já filtrado por esse emprego). **Curso**: nome, instituição, datas, o que apliquei, certificado (imagem/PDF) e link de validação. **Formação**: igual ao curso, com "em andamento" e sem link de validação |
 | Redes sociais | Links da navbar e do rodapé (a plataforma é detectada pelo link) |
 | Textos & rodapé | Títulos das seções e textos do rodapé |
 | Cores & tema | 6 cores (destaque, fundo e texto dos temas claro/escuro) editadas direto na prévia, em HEX, RGB, CMYK, HSV ou HSL, + tema padrão |

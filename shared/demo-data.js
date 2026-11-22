@@ -226,10 +226,10 @@ export const DEMO = {
   tags,
   projects,
   education: [
-    { id: 'e1', kind: 'trabalho', title: 'Designer UX/UI', institution: 'Estúdio Exemplo', description: 'Produtos digitais para fintechs e varejo.', start_date: '2025-02-01', is_current: true },
+    { id: 'e1', kind: 'trabalho', title: 'Designer UX/UI', institution: 'Estúdio Exemplo', description: 'Pesquisa com usuários, prototipação no Figma e design systems para produtos digitais de fintechs e varejo.', start_date: '2025-02-01', is_current: true, project_ids: ['p1', 'p8', 'p10'] },
     { id: 'e2', kind: 'formacao', title: 'Tecnologia em Design Gráfico', institution: 'FATEC', description: 'Tipografia, identidade visual, produção gráfica e interfaces.', start_date: '2023-02-01', end_date: '2026-07-01' },
-    { id: 'e3', kind: 'curso', title: 'Google UX Design', institution: 'Coursera', start_date: '2025-01-01', end_date: '2025-06-01', certificate_url: art('Certificado UX', '#111', '#2f7bff', 3, 1600, 900), credential_url: 'https://www.coursera.org/', applied_text: 'Apliquei o processo completo de UX no redesign do Aurora Banking: entrevistas com usuários, mapa de jornada, testes de usabilidade com protótipos no Figma e iteração com base nos resultados. O curso mudou a forma como organizo pesquisas e apresento descobertas para o time.' },
-    { id: 'e4', kind: 'curso', title: 'Design Systems com Figma', institution: 'Alura', start_date: '2024-08-01', end_date: '2024-10-01', certificate_url: art('Certificado Figma', '#111', '#4355ff', 3, 1600, 900), applied_text: 'Montei do zero o design system do Aurora: tokens de cor e tipografia, componentes com variantes e auto layout, e uma biblioteca compartilhada que o time inteiro passou a usar. Reduziu o retrabalho entre design e desenvolvimento.' },
+    { id: 'e3', kind: 'curso', title: 'Google UX Design', institution: 'Coursera', start_date: '2025-01-01', end_date: '2025-06-01', certificate_url: art('Certificado UX', '#111', '#2f7bff', 3, 1600, 900), credential_url: 'https://www.coursera.org/', description: 'Apliquei o processo completo de UX no redesign do Aurora Banking: entrevistas com usuários, mapa de jornada, testes de usabilidade com protótipos no Figma e iteração com base nos resultados. O curso mudou a forma como organizo pesquisas e apresento descobertas para o time.' },
+    { id: 'e4', kind: 'curso', title: 'Design Systems com Figma', institution: 'Alura', start_date: '2024-08-01', end_date: '2024-10-01', certificate_url: art('Certificado Figma', '#111', '#4355ff', 3, 1600, 900), description: 'Montei do zero o design system do Aurora: tokens de cor e tipografia, componentes com variantes e auto layout, e uma biblioteca compartilhada que o time inteiro passou a usar. Reduziu o retrabalho entre design e desenvolvimento.' },
     { id: 'e5', kind: 'curso', title: 'Motion Design', institution: 'Domestika', start_date: '2024-03-01', end_date: '2024-05-01' },
     // Curso de "teste de estresse": nome e instituição enormes, descrição longa,
     // texto gigante em "o que apliquei" e certificado em pé (retrato).
@@ -237,11 +237,10 @@ export const DEMO = {
       id: 'e6', kind: 'curso',
       title: 'Especialização em Design de Interfaces Acessíveis, Pesquisa com Usuários e Sistemas de Design para Produtos Digitais em Larga Escala',
       institution: 'Escola Superior de Design, Tecnologia e Inovação da Universidade Federal do Interior — Programa de Extensão',
-      description: 'Curso de 360 horas com projeto final avaliado por banca: acessibilidade (WCAG 2.2), pesquisa qualitativa e quantitativa, métricas de experiência e governança de design systems em empresas com vários produtos.',
       start_date: '2023-03-01', end_date: '2024-02-01',
       certificate_url: art('Certificado', '#0b1240', '#2f7bff', 3, 1600, 900),
       credential_url: 'https://example.com/validar',
-      applied_text: [
+      description: [
         'Este curso mudou a forma como eu começo qualquer projeto. Antes eu partia direto para as telas; hoje começo pelas pessoas, pelas restrições e pelos critérios de acessibilidade, e só depois abro o Figma.',
         'No projeto final redesenhei o fluxo de abertura de conta de uma cooperativa pensando em quem usa leitor de tela, quem tem baixa visão e quem acessa com conexão ruim. Fiz 12 entrevistas, 3 rodadas de teste de usabilidade e uma auditoria completa de contraste, foco e ordem de leitura.',
         'Apliquei o que aprendi de governança de design systems no Raiz, o sistema da cooperativa: criamos um processo de contribuição, versionamento semântico dos componentes, documentação com exemplos de uso correto e incorreto e uma revisão mensal com os times de produto.',
